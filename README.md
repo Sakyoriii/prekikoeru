@@ -170,9 +170,9 @@ path:
 logical_deletion: true
 # 解压后是否自动删除
 del_after_unzip: false
-# 合并分卷后自动删除分卷
+# 合并分卷后自动删除分卷(已废弃)
 del_after_merged: true
-# 合并的分卷解压后自动删除
+# 合并的分卷解压后自动删除(已废弃）
 del_after_merged_and_unzip: true
 # 解压套娃压缩后自动删除,建议开启，关闭影响文件去套娃功能
 del_after_reunzip: true
