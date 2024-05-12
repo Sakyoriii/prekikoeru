@@ -1,0 +1,2 @@
+2024-04-21 16:19:49,425 - renamer - INFO - [RJ250978] -> 发现 RJ 文件夹："C:\Users\75219\Desktop\新建文件夹\dir\RJ250978"
+2024-04-21 16:20:46,257 - renamer - INFO - [RJ250978] -> 发现 RJ 文件夹："C:\Users\75219\Desktop\新建文件夹\dir\RJ250978"

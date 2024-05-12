@@ -1,0 +1,26 @@
+{
+  "scaner_max_depth": 2,
+  "scraper_locale": "zh_cn",
+  "scraper_connect_timeout": 10,
+  "scraper_read_timeout": 10,
+  "scraper_sleep_interval": 3,
+  "scraper_http_proxy": null,
+  "renamer_template": "[rjcode][maker_name] work_name cv_list_str",
+  "renamer_release_date_format": "%y%m%d",
+  "renamer_exclude_square_brackets_in_work_name_flag": false,
+  "renamer_illegal_character_to_full_width_flag": false,
+  "make_folder_icon": true,
+  "remove_jpg_file": true,
+  "renamer_delimiter": " ",
+  "cv_list_left": "(CV ",
+  "cv_list_right": ")",
+  "renamer_tags_max_number": 5,
+  "renamer_tags_ordered_list": [
+    "标签1",
+    [
+      "标签2",
+      "替换2"
+    ],
+    "标签3"
+  ]
+}
