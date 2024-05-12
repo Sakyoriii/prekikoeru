@@ -204,6 +204,14 @@ def recheck(file_list, path):
     for file in dir_set:
         # 遍历根路径(解压文件的第一层目录)，文件夹过滤，压缩文件解套
         file_path = os.path.join(path, file)
+        # 特殊字符可能导致路径不存在，尝试找到相似的路径
+        if not os.path.exists(file_path):
+            similar = get_similar(file_path)
+            if similar:
+                file_path = similar
+            else:
+                continue
+
         # 只有文件夹才需要去文件夹套娃和更名
         if os.path.isdir(file_path):
             if len(dir_set) == 1:
