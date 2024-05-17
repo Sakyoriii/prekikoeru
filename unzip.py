@@ -150,13 +150,19 @@ def unzip_main():
 
 def try_unzip(compress_file, file, password, output_path, jap, index, result_list):
     # x 解压  -p 使用密码 -y 重复文件不询问直接覆盖 -o 输出路径 -mcp 编码代码
-    cmd = ['7z', 'x', '-p{}'.format(password), '-y', '-o{}'.format(output_path), compress_file]
+    cmd = ['7z', 'x', '-p{}'.format(password), '-y', compress_file]
     code = False
     if file:  # 解压压缩包内的指定文件
         cmd.append(file)
+        parent = file.split("\\")[0]
+        if os.path.join(output_path, parent) == compress_file:
+            parent += "(1)"
+            output_path = os.path.join(output_path, parent)
     if jap:
         # 使用SHIFT_JIS编码解压
         cmd.append('-mcp=932')
+
+    cmd.append('-o{}'.format(output_path))
 
     print(cmd)
     result = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)

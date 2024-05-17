@@ -31,7 +31,8 @@ def delete_file(file_path):  # 删除方法，若配置逻辑删除则丢进回�
         try:
             shutil.move(file_path, rel_recycle if rel_path else main.recycle_path)
         except shutil.Error as err:
-            logger.error("shutil.Error: {0}".format(err))
+            os.remove(file_path)
+            logger.error("shutil.Error: {0},use remove instead".format(err))
 
     else:
         if os.path.isdir(file_path):
@@ -263,6 +264,8 @@ def find_zip(path, delete):
 
 
 def get_similar(path):  # 获得与输入路径相似文件路径
+    if os.path.exists(path+"(1)"):
+        return path+"(1)"
     father, name = os.path.split(path)  # 所在文件夹
     files = os.listdir(father)
     max_similar = 0  # 相似度最高值
@@ -321,23 +324,24 @@ def rm_taowadir(path):
     first = os.path.join(main.output_path, rel_path[0])
     # 由最外箱内找到最后一个套娃文件夹
     last = last_dir(first)
+    print('checkTW -- first :{} , last :{} '.format(first, last))
     rel = os.path.relpath(last, main.output_path)
     rel_path = rel.split('\\')
     if len(rel_path) > 1:
         rj = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(rel.upper())
         if rj:
-            new_path = path + '-' + rj.group()
+            new_path = last + '-' + rj.group()
             os.renames(path, new_path)
-            logger.info(' 移除套娃文件夹前重命名保留RJ：  [{}] -> [{}]'.format(path, new_path))
-            path = new_path
+            logger.info(' 移除套娃文件夹前重命名保留RJ：  [{}] -> [{}]'.format(last, new_path))
+            last = new_path
 
         try:
-            shutil.move(path, main.output_path)
+            shutil.move(last, main.output_path)
         except shutil.Error as err:
             logger.error(err)
-            os.rename(path, path + '(1)')  # 小而美的防重方案
-            path += '(1)'
-            shutil.move(path, main.output_path)
+            os.rename(last, last + '(1)')  # 小而美的防重方案
+            last += '(1)'
+            shutil.move(last, main.output_path)
 
         dest = os.path.join(main.output_path, rel.split('\\')[0])
         shutil.rmtree(dest)
