@@ -47,13 +47,23 @@ def unzip_main():
         # 取出密码本到临时密码表，加入文件名
         pw_list = main.passwords
         pw_list.insert(0, filename)
+        # 匹配文件名中Rj号，插入密码表
+        RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(compress_file.upper()).group()
+        if RJ:
+            pw_list.insert(0, RJ)
+        # 获得压缩文件内文件列表
+        file_list, pw = get_namelist(compress_file, pw_list)
+        index = pw_list.index(pw)
+        pw_list = pw_list[index:]
 
-        file_list, jap = pre_extract(compress_file, pw_list)
+        if not file_list:
+            logger.info(' 文件[' + compress_file + ']解压失败,无匹的解压码')
+            continue
+
+        file_list, jap = pre_extract(file_list)
         if jap:
             logger.info(' 检测到日文乱码，使用： [SHIFT_JIS] 编码尝试解压： [' + compress_file + '] 文件')
 
-        if not file_list:
-            continue
         #  前置过滤器
         file_list = file_ops.pre_filter(file_list)
         #  套娃压缩包在原路径解压，其他解压到output/压缩包名
@@ -62,8 +72,8 @@ def unzip_main():
         else:
             path = os.path.split(compress_file)[0]  # 文件路径
 
+        # 开始使用7zip解压缩文件
         for password in pw_list:
-            # 使用7zip解压缩包并尝试密码
             index = 0  # 进程索引
             max = main.max_thread
             process = [False] * max
@@ -71,9 +81,8 @@ def unzip_main():
             unzip_all = False
             result_list = multiprocessing.Manager().list([7] * max)
             result = 0  # 进程结果
-            progess = 0
+            progess = 0  # 进度
 
-            finish = 0
             for file in file_list:
                 pk_logger.gui.update_progress(progess, len(file_list), '{} : {}'.format(compress_file, file))
 
@@ -91,11 +100,11 @@ def unzip_main():
                 if p:
                     result = result_list[index]
                     if result == 0:
-                        finish += 1
                         wait = False
                     elif result == 333:
                         unzip_all = True
                         file = None
+                        logger.debug('压缩文件{}的文件列表中含有特殊字符无法逐个解压，使用单进程完整解压'.format(compress_file))
                     else:
                         break
 
@@ -213,23 +222,20 @@ def get_namelist(file_path, password_list):
                     next_volume = int(index.group(1)) + 1
                     next_path = re.sub(r'\d+$', str(next_volume), file_path)
                     if os.path.exists(next_path):
-                        namelist = namelist + get_namelist(next_path, [password])
+                        append_list, password = get_namelist(next_path, [password])
+                        namelist = namelist + append_list
                 namelist = list(set(namelist))
-                return namelist
+                return namelist, password
     logger.info(' 文件[' + file_path + ']解压失败,无匹的解压码')
     return None
 
 
-def pre_extract(file, password_list):
+def pre_extract(file_list):
     # 获取压缩文件目录
     # if zipfile.is_zipfile(file):
     #     file_list = get_zip_namelist(file)
     # else:
     #     file_list = get_7z_namelist(file, password_list)
-
-    file_list = get_namelist(file, password_list)
-    if not file_list:
-        return None, False
     for file in file_list:
         if file_ops.encode_detect(file):
             # 检测到日文编码SHIFT_JIS

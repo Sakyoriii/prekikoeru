@@ -23,6 +23,7 @@ def mk_if_not_exit(path):  # 若文件夹不存在则创建
 def delete_file(file_path):  # 删除方法，若配置逻辑删除则丢进回收文件夹
     if main.logical_deletion:
         mk_if_not_exit(main.recycle_path)
+        rel_path = False
         if main.output_path in file_path:  # 在输出路径中的文件，保留相对路径移动到回收站
             rel_path = os.path.relpath(file_path, main.output_path)
             rel_recycle = os.path.join(main.recycle_path, os.path.split(rel_path)[0])
@@ -212,16 +213,16 @@ def recheck(file_list, path):
             else:
                 continue
 
-        # 只有文件夹才需要去文件夹套娃和更名
-        if os.path.isdir(file_path):
+        if os.path.isdir(file_path) and len(dir_set) > 1:
+            # 过滤文件夹内文件
+            main.next_queue.put(file_path)
+        else:
+            # 只有文件夹才需要去文件夹套娃和更名
             if len(dir_set) == 1:
                 # 去文件夹套娃
                 file_path = rm_taowadir(file_path)
-        else:
-            # 检查是不是（套娃）压缩包，是则加入解压任务队列
-            find_zip(file_path, main.del_after_reunzip)
-        # 过滤文件夹内文件
-        main.next_queue.put(file_path)
+            if not find_zip(file_path, main.del_after_reunzip):
+                main.next_queue.put(file_path)
 
 
 def find_zip(path, delete):
@@ -229,31 +230,36 @@ def find_zip(path, delete):
     logger.debug('检查:' + path)
     # 路径是文件夹，扫描一层，只检查文件
     if os.path.isdir(path):
+        find = False
         for file in os.listdir(path):
             file = os.path.join(path, file)
             if not os.path.isdir(file):
-                find_zip(file, delete)
+                find = find or find_zip(file, delete)
+        return find
     # 路径是压缩文件，分卷只把头卷加入队列
     elif unzip.is_archive(path):
         if is_volume_zip(path):
             # 分卷只添加一次避免被反复添加解压
             if not ('part1' or '001') in os.path.basename(path):
-                return
+                return False
                 # 命名符合分卷压缩正则，把同目录下同属的分卷包装成list
             # merged = merge_zip(path)
             volumes = volume_zip_list(path)
             main.task_queue.put((volumes[0], delete))
             logger.info(' 发现分卷压缩文件： [{}]'.format('],['.join(volumes)))
+            return True
         else:
             main.task_queue.put((path, delete))
             logger.info(' 发现压缩文件： [{}]'.format(path))
-    else:   # 路径不存在或无法识别，尝试相似路径
+            return True
+    else:  # 路径不存在或无法识别，尝试相似路径
         similar = get_similar_path(path)
         if similar and not path == similar:
             logger.debug(' 尝试相似路径 [{}]'.format(similar))
-            find_zip(similar, delete)
+            return find_zip(similar, delete)
         else:
             logger.debug(' 文件 [{}] 无法识别'.format(path))
+            return False
 
 
 def get_similar(path):  # 获得与输入路径相似文件路径
@@ -291,7 +297,7 @@ def find_RJ(path):
     for root, dirsname, files in os.walk(path):
         if dirsname:
             for dir in dirsname:
-                RJ = scraper.Dlsite.parse_workno(dir)
+                RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(dir.upper())
                 if RJ:
                     return RJ
     return None
@@ -322,12 +328,21 @@ def rm_taowadir(path):
         if rj:
             new_path = path + '-' + rj.group()
             os.renames(path, new_path)
-            logger.info(' 移除套娃文件夹前重命名保留RJ： [' + path + '] -> [' + new_path + ']')
+            logger.info(' 移除套娃文件夹前重命名保留RJ：  [{}] -> [{}]'.format(path, new_path))
             path = new_path
 
-        shutil.move(path, main.output_path)
-        basename = new_path.split('\\')[-1]
-        path = os.path.join(main.output_path, basename)
-        shutil.rmtree(os.path.join(main.output_path, rel.split('\\')[0]))
-        logger.info(' 移除套娃文件夹： [' + path + '] -> [' + main.output_path + '\\' + path)
+        try:
+            shutil.move(path, main.output_path)
+        except shutil.Error as err:
+            logger.error(err)
+            os.rename(path, path + '(1)')  # 小而美的防重方案
+            path += '(1)'
+            shutil.move(path, main.output_path)
+
+        dest = os.path.join(main.output_path, rel.split('\\')[0])
+        shutil.rmtree(dest)
+        basename = path.split('\\')[-1]
+        new_path = os.path.join(main.output_path, basename)
+        logger.info(' 移除套娃文件夹： [{}] -> [{}]'.format(path, new_path))
+        path = new_path
     return path
