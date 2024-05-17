@@ -7,8 +7,9 @@
 - 解压出来的压缩包自动继续解压（套娃压缩文件）
 - 解压的套娃压缩包可能会造成文件夹套娃，所以文件夹也解套娃
 - 根据正则匹配文件名方式过滤文件（解压前过滤解压文件list、解压后过滤输出文件）
-- 根据JR号爬dlsite元数据重命名照搬[大佬的dlrenam项目](github.com/yodhcn/dlsite-doujin-renamer)
+- 根据JR号爬dlsite元数据重命名照搬[大佬的dlrename项目](https://github.com/yodhcn/dlsite-doujin-renamer)
 
+此工具有关压缩文件的操作几乎都依赖于[7zi](https://www.7-zip.org/)命令行实现，由于未实现设定7zip路径功能，请务必正确安装7zip并[配置好相关环境变量](https://www.google.com/search?q=7zip%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F&oq=7zip%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F)后使用
 
 示例日志：
 
@@ -169,9 +170,9 @@ path:
 logical_deletion: true
 # 解压后是否自动删除
 del_after_unzip: false
-# 合并分卷后自动删除分卷
+# 合并分卷后自动删除分卷(已废弃)
 del_after_merged: true
-# 合并的分卷解压后自动删除
+# 合并的分卷解压后自动删除(已废弃）
 del_after_merged_and_unzip: true
 # 解压套娃压缩后自动删除,建议开启，关闭影响文件去套娃功能
 del_after_reunzip: true
