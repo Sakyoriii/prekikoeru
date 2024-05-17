@@ -48,9 +48,9 @@ def unzip_main():
         pw_list = main.passwords
         pw_list.insert(0, filename)
         # 匹配文件名中Rj号，插入密码表
-        RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(compress_file.upper()).group()
+        RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(compress_file.upper())
         if RJ:
-            pw_list.insert(0, RJ)
+            pw_list.insert(0, RJ.group())
         # 获得压缩文件内文件列表
         file_list, pw = get_namelist(compress_file, pw_list)
         index = pw_list.index(pw)
