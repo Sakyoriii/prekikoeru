@@ -254,9 +254,9 @@ def find_zip(path, delete):
             logger.info(' 发现压缩文件： [{}]'.format(path))
             return True
     else:  # 路径不存在或无法识别，尝试相似路径
-        if not os.path.exists:
+        if not os.path.exists(path):
             similar = get_similar_path(path)
-            if similar and not path == similar:
+            if similar:
                 logger.debug(' 尝试相似路径 [{}]'.format(similar))
                 return find_zip(similar, delete)
 
@@ -265,8 +265,8 @@ def find_zip(path, delete):
 
 
 def get_similar(path):  # 获得与输入路径相似文件路径
-    if os.path.exists(path+"(1)"):
-        return path+"(1)"
+    if os.path.exists(path + "(1)"):
+        return path + "(1)"
     father, name = os.path.split(path)  # 所在文件夹
     files = os.listdir(father)
     max_similar = 0  # 相似度最高值
@@ -277,7 +277,8 @@ def get_similar(path):  # 获得与输入路径相似文件路径
         if similar > 0.9 and similar > max_similar:
             max_similar = similar
             result = file_path
-    return result
+    # 只返回相似路径不返回相同路径
+    return result if not result == path else None
 
 
 def get_similar_path(path):
