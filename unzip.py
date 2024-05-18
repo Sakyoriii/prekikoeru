@@ -78,14 +78,16 @@ def unzip_main():
             max = main.max_thread
             process = [False] * max
             wait = True
-            unzip_all = False
             result_list = multiprocessing.Manager().list([7] * max)
             result = 0  # 进程结果
-            progess = 0  # 进度
+            progress = 0  # 进度
 
             for file in file_list:
-                pk_logger.gui.update_progress(progess, len(file_list), '{} : {}'.format(compress_file, file))
+                pk_logger.gui.update_progress(progress, len(file_list), '{} : {}'.format(compress_file, file))
+                if len(file_list) == 1:
+                    file = None
 
+                # 循环等等空进程
                 while True:
                     try:
                         p = process[index]
@@ -97,12 +99,12 @@ def unzip_main():
                     if not wait:
                         index = (index + 1) % max
 
+                # 发现空线程，创建任务
                 if p:
                     result = result_list[index]
                     if result == 0:
                         wait = False
                     elif result == 333:
-                        unzip_all = True
                         file = None
                         logger.debug('压缩文件{}的文件列表中含有特殊字符无法逐个解压，使用单进程完整解压'.format(compress_file))
                     else:
@@ -112,15 +114,16 @@ def unzip_main():
                             args=(compress_file, file, password, path, jap, index, result_list,))
                 p.start()
                 process[index] = p
-                progess += 1
+                progress += 1
+
                 if wait:
                     p.join()
                     result = result_list[index]
-                    if unzip_all:
-                        progess = len(file_list)
+                    if not file:
+                        progress = len(file_list)
                         break
-
             else:
+                # 等待所有进程结束
                 for p in process:
                     if p:
                         p.join()
@@ -130,7 +133,7 @@ def unzip_main():
 
             logger.info(' 解压完成： [' + compress_file + '] 使用密码： [' + password + '] ,删除压缩文件：' + str(
                 del_after_unzip))
-            pk_logger.gui.update_progress(progess, len(file_list), '完成')
+            pk_logger.gui.update_progress(progress, len(file_list), '完成')
             # 删除已解压的压缩文件
             if del_after_unzip:
                 if file_ops.is_volume_zip(compress_file):
@@ -170,6 +173,7 @@ def try_unzip(compress_file, file, password, output_path, jap, index, result_lis
         output = result.stdout.readlines()
         if output:
             for log in output:
+                print(log.strip().decode('gbk'))
                 if "No files to process" in log.strip().decode('gbk'):  # gbk无法正确编码特殊符号导致无法找到要解压的目标文件
                     code = 333
     if result.returncode == 0 and code:

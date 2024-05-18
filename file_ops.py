@@ -254,13 +254,14 @@ def find_zip(path, delete):
             logger.info(' 发现压缩文件： [{}]'.format(path))
             return True
     else:  # 路径不存在或无法识别，尝试相似路径
-        similar = get_similar_path(path)
-        if similar and not path == similar:
-            logger.debug(' 尝试相似路径 [{}]'.format(similar))
-            return find_zip(similar, delete)
-        else:
-            logger.debug(' 文件 [{}] 无法识别'.format(path))
-            return False
+        if not os.path.exists:
+            similar = get_similar_path(path)
+            if similar and not path == similar:
+                logger.debug(' 尝试相似路径 [{}]'.format(similar))
+                return find_zip(similar, delete)
+
+        logger.debug(' 文件 [{}] 无法识别'.format(path))
+        return False
 
 
 def get_similar(path):  # 获得与输入路径相似文件路径
