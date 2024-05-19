@@ -283,8 +283,8 @@ def get_similar(path):  # 获得与输入路径相似文件路径
 
 def get_similar_path(path):
     path_list = path.split('\\')
-    new_path = ''
-    for item in path_list:
+    new_path = path_list[0]+'\\'
+    for item in path_list[1:]:
         temp = os.path.join(new_path, item)
         if '?' not in item:
             new_path = temp
@@ -347,7 +347,7 @@ def rm_taowadir(path):
 
         dest = os.path.join(main.output_path, rel.split('\\')[0])
         shutil.rmtree(dest)
-        basename = path.split('\\')[-1]
+        basename = last.split('\\')[-1]
         new_path = os.path.join(main.output_path, basename)
         logger.info(' 移除套娃文件夹： [{}] -> [{}]'.format(path, new_path))
         path = new_path

@@ -53,12 +53,12 @@ def unzip_main():
             pw_list.insert(0, RJ.group())
         # 获得压缩文件内文件列表
         file_list, pw = get_namelist(compress_file, pw_list)
-        index = pw_list.index(pw)
-        pw_list = pw_list[index:]
 
         if not file_list:
             logger.info(' 文件[' + compress_file + ']解压失败,无匹的解压码')
             continue
+        index = pw_list.index(pw)
+        pw_list = pw_list[index:]
 
         file_list, jap = pre_extract(file_list)
         if jap:
@@ -81,6 +81,7 @@ def unzip_main():
             result_list = multiprocessing.Manager().list([7] * max)
             result = 0  # 进程结果
             progress = 0  # 进度
+            wildcard = False  # 使用通配符解压
 
             for file in file_list:
                 pk_logger.gui.update_progress(progress, len(file_list), '{} : {}'.format(compress_file, file))
@@ -105,8 +106,18 @@ def unzip_main():
                     if result == 0:
                         wait = False
                     elif result == 333:
-                        file = None
-                        logger.debug('压缩文件{}的文件列表中含有特殊字符无法逐个解压，使用单进程完整解压'.format(compress_file))
+                        if wildcard:
+                            file = None
+                            logger.debug('压缩文件{}的文件列表中含有特殊字符无法逐个解压，使用单进程完整解压'.format(compress_file))
+                        else:
+                            # 使用通配符替换特殊字符
+                            for i, e in enumerate(file_list):
+                                file_list[i] = e.replace('_', '?')
+                            file_list.extend(file_list[:2])
+                            wildcard = True
+                            result_list[index] = 0
+                            logger.debug('压缩文件{}的文件列表中含未能正确编码的有特殊字符，使用通配符参数，可能造成进度显示错误'.format(compress_file))
+                            continue
                     else:
                         break
 
@@ -236,8 +247,7 @@ def get_namelist(file_path, password_list):
                         namelist = namelist + append_list
                 namelist = list(set(namelist))
                 return namelist, password
-    logger.info(' 文件[' + file_path + ']解压失败,无匹的解压码')
-    return None
+    return None, None
 
 
 def pre_extract(file_list):
