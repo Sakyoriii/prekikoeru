@@ -196,34 +196,26 @@ def scan_file(path, delete):
 
 
 def recheck(file_list, path):
-    print(file_list)
-    pattern = r'^(?:[^\\]*|.*?(?=\\))'
-    dir_set = set()
-    for name in file_list:
-        # 在file list中找出压缩文件的所有根目录，使用set集合防重
-        dir_set.add(re.search(pattern, name).group())
-
-    for file in dir_set:
-        # 遍历根路径(解压文件的第一层目录)，文件夹过滤，压缩文件解套
-        file_path = os.path.join(path, file)
-        # 特殊字符可能导致路径不存在，尝试找到相似的路径
-        if not os.path.exists(file_path):
-            similar = get_similar(file_path)
-            if similar:
-                file_path = similar
-            else:
-                continue
-
-        if os.path.isdir(file_path) and len(dir_set) > 1:
-            # 过滤文件夹内文件
-            main.next_queue.put(file_path)
-        else:
-            # 只有文件夹才需要去文件夹套娃和更名
-            if len(dir_set) == 1:
-                # 去文件夹套娃
-                file_path = rm_taowadir(file_path)
-            if not find_zip(file_path, main.del_after_reunzip):
-                main.next_queue.put(file_path)
+    # print(file_list)
+    # pattern = r'^(?:[^\\]*|.*?(?=\\))'
+    # dir_set = set()
+    # for name in file_list:
+    #     # 在file list中找出压缩文件的所有根目录，使用set集合防重
+    #     dir_set.add(re.search(pattern, name).group())
+    #
+    # for file in dir_set:
+    #     # 遍历根路径(解压文件的第一层目录)，文件夹过滤，压缩文件解套
+    #     file_path = os.path.join(path, file)
+    #     # 特殊字符可能导致路径不存在，尝试找到相似的路径
+    #     if not os.path.exists(file_path):
+    #         similar = get_similar(file_path)
+    #         if similar:
+    #             file_path = similar
+    # 去文件夹套娃
+    path = rm_taowadir(path)
+    # 若无套娃压缩，则加入下一任务（过滤）队列
+    if not find_zip(path, main.del_after_reunzip):
+        main.next_queue.put(path)
 
 
 def find_zip(path, delete):
@@ -283,7 +275,7 @@ def get_similar(path):  # 获得与输入路径相似文件路径
 
 def get_similar_path(path):
     path_list = path.split('\\')
-    new_path = path_list[0]+'\\'
+    new_path = path_list[0] + '\\'
     for item in path_list[1:]:
         temp = os.path.join(new_path, item)
         if '?' not in item:
@@ -333,7 +325,7 @@ def rm_taowadir(path):
         rj = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(rel.upper())
         if rj:
             new_path = last + '-' + rj.group()
-            os.renames(path, new_path)
+            os.rename(last, new_path)
             logger.info(' 移除套娃文件夹前重命名保留RJ：  [{}] -> [{}]'.format(last, new_path))
             last = new_path
 

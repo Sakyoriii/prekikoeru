@@ -1,4 +1,4 @@
-import _lzma
+
 import multiprocessing
 import os
 
@@ -9,7 +9,7 @@ import zipfile
 from multiprocessing import Process
 
 import filetype
-import py7zr as py7zr
+
 
 import main
 import file_ops
@@ -202,22 +202,22 @@ def get_zip_namelist(file):
 
 
 # 获取7z压缩文件的文件列表
-def get_7z_namelist(file, password_list):
-    for password in password_list:
-        try:
-            with py7zr.SevenZipFile(file, mode='r', password=password) as z:
-                files = z.getnames()
-                return files
-        except _lzma.LZMAError as err:
-            print(err)
-            # logger.error(' 文件[' + file + ']可能已损坏')
-            # return
-
-        except py7zr.exceptions.Bad7zFile:
-            pass
-
-    # 所有密码都尝试失败，将压缩包添加到失败列表
-    logger.info(' 文件[' + file + ']解压失败,无匹的解压码')
+# def get_7z_namelist(file, password_list):
+#     for password in password_list:
+#         try:
+#             with py7zr.SevenZipFile(file, mode='r', password=password) as z:
+#                 files = z.getnames()
+#                 return files
+#         except _lzma.LZMAError as err:
+#             print(err)
+#             # logger.error(' 文件[' + file + ']可能已损坏')
+#             # return
+#
+#         except py7zr.exceptions.Bad7zFile:
+#             pass
+#
+#     # 所有密码都尝试失败，将压缩包添加到失败列表
+#     logger.info(' 文件[' + file + ']解压失败,无匹的解压码')
 
 
 def get_namelist(file_path, password_list):
