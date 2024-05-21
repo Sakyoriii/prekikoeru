@@ -22,7 +22,6 @@ class LogHandler(logging.Handler):
     # except Exception:
     #     self.handleError(record)
 
-
 class Pk_logger(object):
     def __init__(self, name: str, file: str = None):
         self.name = name
