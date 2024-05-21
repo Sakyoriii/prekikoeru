@@ -195,22 +195,7 @@ def scan_file(path, delete):
     #             main.filter_queue.put(file_path)
 
 
-def recheck(file_list, path):
-    # print(file_list)
-    # pattern = r'^(?:[^\\]*|.*?(?=\\))'
-    # dir_set = set()
-    # for name in file_list:
-    #     # 在file list中找出压缩文件的所有根目录，使用set集合防重
-    #     dir_set.add(re.search(pattern, name).group())
-    #
-    # for file in dir_set:
-    #     # 遍历根路径(解压文件的第一层目录)，文件夹过滤，压缩文件解套
-    #     file_path = os.path.join(path, file)
-    #     # 特殊字符可能导致路径不存在，尝试找到相似的路径
-    #     if not os.path.exists(file_path):
-    #         similar = get_similar(file_path)
-    #         if similar:
-    #             file_path = similar
+def recheck(path):
     # 去文件夹套娃
     path = rm_taowadir(path)
     # 若无套娃压缩，则加入下一任务（过滤）队列

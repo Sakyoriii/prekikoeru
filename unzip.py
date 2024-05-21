@@ -1,4 +1,3 @@
-
 import multiprocessing
 import os
 
@@ -9,7 +8,6 @@ import zipfile
 from multiprocessing import Process
 
 import filetype
-
 
 import main
 import file_ops
@@ -81,7 +79,7 @@ def unzip_main():
             result_list = multiprocessing.Manager().list([7] * max)
             result = 0  # 进程结果
             progress = 0  # 进度
-            wildcard = False  # 使用通配符解压
+            wildcard = False  # 使用通配符
 
             for file in file_list:
                 pk_logger.gui.update_progress(progress, len(file_list), '{} : {}'.format(compress_file, file))
@@ -105,19 +103,21 @@ def unzip_main():
                     result = result_list[index]
                     if result == 0:
                         wait = False
-                    elif result == 333:
-                        if wildcard:
+                    elif result.startswith("333"):
+                        retry = result.split(" ")[1]
+                        if wildcard and retry in file_list:  # 文件为二次重试
                             file = None
-                            logger.debug('压缩文件{}的文件列表中含有特殊字符无法逐个解压，使用单进程完整解压'.format(compress_file))
+                            logger.debug('文件名{}中含有特殊字符无法逐个解压，使用单进程完整解压'.format(retry))
                         else:
+                            # 把失败文件加入到队尾
+                            file_list.append(retry)
                             # 使用通配符替换特殊字符
                             for i, e in enumerate(file_list):
-                                file_list[i] = e.replace('_', '?')
-                            file_list.extend(file_list[:2])
+                                # 使用通配符替换所有符号
+                                file_list[i] = re.sub(r'[〜？！_]', "?", e)
+                            file = re.sub(r'[〜？！_]', "?", file)
                             wildcard = True
-                            result_list[index] = 0
-                            logger.debug('压缩文件{}的文件列表中含未能正确编码的有特殊字符，使用通配符参数，可能造成进度显示错误'.format(compress_file))
-                            continue
+                            logger.debug('压缩文件{}的文件列表中含未能正确编码的有特殊字符，使用通配符参数，可能造成进度显示错误'.format(retry))
                     else:
                         break
 
@@ -153,7 +153,7 @@ def unzip_main():
                 else:
                     file_ops.delete_file(compress_file)
             # 检查是否套娃并添加到解压队列或过滤文件,整理文件去文件夹套娃
-            file_ops.recheck(file_list, path)
+            file_ops.recheck(path)
             break
         else:
             # 所有密码都尝试失败，将压缩包添加到失败列表
@@ -184,11 +184,10 @@ def try_unzip(compress_file, file, password, output_path, jap, index, result_lis
         output = result.stdout.readlines()
         if output:
             for log in output:
-                print(log.strip().decode('gbk'))
                 if "No files to process" in log.strip().decode('gbk'):  # gbk无法正确编码特殊符号导致无法找到要解压的目标文件
                     code = 333
     if result.returncode == 0 and code:
-        result_list[index] = code
+        result_list[index] = f'{code} {file}'
     else:
         result_list[index] = result.returncode
     return result.returncode == 0
