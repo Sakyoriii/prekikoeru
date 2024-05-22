@@ -103,7 +103,7 @@ def unzip_main():
                     result = result_list[index]
                     if result == 0:
                         wait = False
-                    elif result.startswith("333"):
+                    elif result.__class__ == str and result.startswith("333"):
                         retry = result.split(" ")[1]
                         if wildcard and retry in file_list:  # 文件为二次重试
                             file = None
