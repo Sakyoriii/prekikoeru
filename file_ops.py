@@ -96,7 +96,17 @@ def rename_main():  # 主重命名方法
 def is_volume_zip(file_name):  # 判断是否是分卷压缩
     pattern_7z = r"(.*)\.\d{3}\b"  # 7z分卷： [basename].001,[basename].002 ...
     pattern_rar = r"(.*)\.part\d+"  # rar分卷： [basename].part1.[extension],[basename].part2.[extension] ...
-    return bool(re.search(pattern_7z, file_name)) or bool(re.search(pattern_rar, file_name))
+    pattern_zip = r"(.*)\.z\d{2}\b"  # zip分卷： [basename].zip,[basename].z01,[basename].z02 ...
+
+    if re.search(r"(.*)\.zip\b", file_name):
+        father, name = os.path.split(file_name)
+        basename, _ = os.path.splitext(name)
+        next_volume = os.path.join(father, basename)
+        next_volume = next_volume + ".z01"
+        return os.path.exists(next_volume)
+
+    return bool(re.search(pattern_7z, file_name)) or bool(re.search(pattern_rar, file_name)) or bool(
+        re.search(pattern_zip, file_name))
 
 
 # 找到属于同分卷压缩包的所有分卷
@@ -108,8 +118,10 @@ def volume_zip_list(file_path):
     # 使用文件夹正则找到分卷压缩包，并捕获分卷无后缀的文件名
     pattern_7z = r'(.*)\.\d{3}\b'
     pattern_rar = r'(.*)\.part\d+'
+    pattern_zip = r'(.*)\.z[i\d][p\d]\b'
     re_7z = re.search(pattern_7z, basename)
     re_rar = re.search(pattern_rar, basename)
+    re_zip = re.search(pattern_zip, basename)
     # 使用捕获到的文件名改写正则
     if re_7z:
         filename = re_7z.group(1)
@@ -117,8 +129,11 @@ def volume_zip_list(file_path):
     elif re_rar:
         filename = re_rar.group(1)
         pattern = r'{}\.part\d+'.format(filename)  # 标识如.part1,.part2
+    elif re_zip:
+        filename = re_zip.group(1)
+        pattern = r'{}\.z[i\d][p\d]\b'.format(filename)
     else:
-        return  # 7z和rar的分卷命名正则都无法命中
+        return  # 7z和rar和zip的分卷命名正则都无法命中
 
     # 使用改写后的正则寻找同属的分卷
     zip_list = []
@@ -214,31 +229,37 @@ def find_zip(path, delete):
             if not os.path.isdir(file):
                 find = find or find_zip(file, delete)
         return find
-    # 路径是压缩文件，分卷只把头卷加入队列
-    elif unzip.is_archive(path):
-        if is_volume_zip(path):
-            # 分卷只添加一次避免被反复添加解压
-            if not ('part1' or '001') in os.path.basename(path):
-                return False
-                # 命名符合分卷压缩正则，把同目录下同属的分卷包装成list
-            # merged = merge_zip(path)
-            volumes = volume_zip_list(path)
-            main.task_queue.put((volumes[0], delete))
-            logger.info(' 发现分卷压缩文件： [{}]'.format('],['.join(volumes)))
-            return True
-        else:
-            main.task_queue.put((path, delete))
-            logger.info(' 发现压缩文件： [{}]'.format(path))
-            return True
-    else:  # 路径不存在或无法识别，尝试相似路径
-        if not os.path.exists(path):
-            similar = get_similar_path(path)
-            if similar:
-                logger.debug(' 尝试相似路径 [{}]'.format(similar))
-                return find_zip(similar, delete)
 
-        logger.debug(' 文件 [{}] 无法识别'.format(path))
-        return False
+    zip_entity = unzip.Zip(path, main.passwords, delete)
+    # 路径是压缩文件，分卷只把头卷加入队列
+    log = None
+    if is_volume_zip(path):
+        # 分卷只添加一次避免被反复添加解压
+        if not any(e in os.path.basename(path) for e in ('part1', '001', 'z01')):
+            return False
+            # 命名符合分卷压缩正则，把同目录下同属的分卷包装成list
+        # merged = merge_zip(path)
+        # 修改统一易识别分卷后缀并返回分卷列表
+        volumes = volume_zip_list(path)
+        zip_entity.path = volumes[0]
+        log = ' 发现分卷压缩文件： [{}]'.format('],['.join(volumes))
+
+    if zip_entity.init_file_list():
+        main.task_queue.put(zip_entity)
+        if not log:
+            log = ' 发现压缩文件： [{}]'.format(path)
+        logger.info(log)
+        return True
+
+    # 路径不存在或无法识别，尝试相似路径
+    if not os.path.exists(path):
+        similar = get_similar_path(path)
+        if similar:
+            logger.debug(' 尝试相似路径 [{}]'.format(similar))
+            return find_zip(similar, delete)
+
+    logger.debug(' 文件 [{}] 无法识别,请检查文件是否可解压及密码是否匹配'.format(path))
+    return False
 
 
 def get_similar(path):  # 获得与输入路径相似文件路径

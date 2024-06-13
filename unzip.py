@@ -16,6 +16,42 @@ import pk_logger
 logger = pk_logger.Pk_logger('unzip_logger', 'log.txt').add_log_handler().get_logger()
 
 
+class Zip:
+
+    def __init__(self, file, password_list: list, del_after_unzip: bool):
+        self.path = file
+        self.father, self.name = os.path.split(file)  # 所在文件夹,文件名
+        self.pw_list = password_list
+        self.del_after_unzip = del_after_unzip
+
+        self.filename, self.extension = os.path.splitext(self.name)  # 文件名，文件扩展名
+        self.pw_list.insert(0, self.filename)
+        # 匹配文件名中Rj号，插入密码表
+        RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(self.filename.upper())
+        if RJ:
+            self.pw_list.insert(0, RJ.group())
+
+        self.file_list = []
+
+    def __str__(self):
+        return self.path
+
+    def init_file_list(self):
+        file_list, password = get_namelist(self.path, self.pw_list)  # 压缩文件内文件列表
+        self.file_list = file_list
+        if not file_list:
+            return False
+        start_at = self.pw_list.index(password)
+        self.pw_list = self.pw_list[start_at:]  # 跳过已经校验失败的密码
+        return bool(file_list)
+
+    def pre_extract(self):
+        new_list, jap = pre_extract(self.file_list)
+        if jap:
+            self.file_list = new_list
+        return jap
+
+
 def is_archive(file):  # 判断是否是压缩文件，只判断常见几种类型足够了
     if not os.path.exists(file):
         logger.error('路径[{}]不存在，请检查路径是否包含错误解码的特殊字符'.format(file))
@@ -30,7 +66,8 @@ def is_archive(file):  # 判断是否是压缩文件，只判断常见几种类�
                 full_filename = os.path.basename(file)
                 filename = full_filename.split('.')[0]
                 password_list.append(filename)
-                return bool(get_namelist(file, password_list))
+                namelist, _ = get_namelist(file, password_list)
+                return bool(list)
             return any(t in guess.mime for t in archive) or guess.extension == 'rar'
     return False
 
@@ -38,37 +75,38 @@ def is_archive(file):  # 判断是否是压缩文件，只判断常见几种类�
 # 处理压缩包的线程函数
 def unzip_main():
     while not main.task_queue.empty():
-        compress_file, del_after_unzip = main.task_queue.get_nowait()  # 解包得到压缩文件路径和是否删除
-        full_filename = os.path.basename(compress_file)  # 完整文件名
-        filename, extension = os.path.splitext(full_filename)  # 文件名，文件扩展名
+        compress_file: Zip = main.task_queue.get_nowait()  # 解包得到压缩文件路径和是否删除
+        # full_filename = os.path.basename(compress_file)  # 完整文件名
+        # filename, extension = os.path.splitext(full_filename)  # 文件名，文件扩展名
 
-        # 取出密码本到临时密码表，加入文件名
-        pw_list = main.passwords
-        pw_list.insert(0, filename)
-        # 匹配文件名中Rj号，插入密码表
-        RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(compress_file.upper())
-        if RJ:
-            pw_list.insert(0, RJ.group())
-        # 获得压缩文件内文件列表
-        file_list, pw = get_namelist(compress_file, pw_list)
+        pw_list = compress_file.pw_list
+        # # 取出密码本到临时密码表，加入文件名
+        # pw_list = compress_file.pw_list
+        # pw_list.insert(0, filename)
+        # # 匹配文件名中Rj号，插入密码表
+        # RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(compress_file.upper())
+        # if RJ:
+        #     pw_list.insert(0, RJ.group())
+        # # 获得压缩文件内文件列表
+        # file_list, pw = get_namelist(compress_file, pw_list)
 
-        if not file_list:
-            logger.info(' 文件[' + compress_file + ']解压失败,无匹的解压码')
-            continue
-        index = pw_list.index(pw)
-        pw_list = pw_list[index:]
+        # if not file_list:
+        #     logger.info(' 文件[' + compress_file + ']解压失败,无匹的解压码')
+        #     continue
+        # index = pw_list.index(pw)
+        # pw_list = pw_list[index:]
 
-        file_list, jap = pre_extract(file_list)
+        jap = compress_file.pre_extract()
         if jap:
             logger.info(' 检测到日文乱码，使用： [SHIFT_JIS] 编码尝试解压： [' + compress_file + '] 文件')
 
         #  前置过滤器
-        file_list = file_ops.pre_filter(file_list)
+        filtered_list = file_ops.pre_filter(compress_file.file_list)
         #  套娃压缩包在原路径解压，其他解压到output/压缩包名
-        if main.output_path not in compress_file:
-            path = os.path.join(main.output_path, filename)
+        if main.output_path not in compress_file.path:
+            path = os.path.join(main.output_path, compress_file.filename)
         else:
-            path = os.path.split(compress_file)[0]  # 文件路径
+            path = compress_file.father  # 文件路径
 
         # 开始使用7zip解压缩文件
         for password in pw_list:
@@ -81,9 +119,9 @@ def unzip_main():
             progress = 0  # 进度
             wildcard = False  # 使用通配符
 
-            for file in file_list:
-                pk_logger.gui.update_progress(progress, len(file_list), '{} : {}'.format(compress_file, file))
-                if len(file_list) == 1:
+            for file in filtered_list:
+                pk_logger.gui.update_progress(progress, len(filtered_list), '{} : {}'.format(compress_file, file))
+                if len(filtered_list) == 1:
                     file = None
 
                 # 循环等等空进程
@@ -104,17 +142,17 @@ def unzip_main():
                     if result == 0:
                         wait = False
                     elif result.__class__ == str and result.startswith("333"):
-                        retry = result.split(" ")[1]
-                        if wildcard and retry in file_list:  # 文件为二次重试
+                        retry = result.split(" ", 1)[1]
+                        if wildcard and retry in filtered_list:  # 文件为二次重试
                             file = None
                             logger.debug('文件名{}中含有特殊字符无法逐个解压，使用单进程完整解压'.format(retry))
                         else:
                             # 把失败文件加入到队尾
-                            file_list.append(retry)
+                            filtered_list.append(retry)
                             # 使用通配符替换特殊字符
-                            for i, e in enumerate(file_list):
+                            for i, e in enumerate(filtered_list):
                                 # 使用通配符替换所有符号
-                                file_list[i] = re.sub(r'[〜？！_]', "?", e)
+                                filtered_list[i] = re.sub(r'[〜？！_]', "?", e)
                             file = re.sub(r'[〜？！_]', "?", file)
                             wildcard = True
                             logger.debug('压缩文件{}的文件列表中含未能正确编码的有特殊字符，使用通配符参数，可能造成进度显示错误'.format(retry))
@@ -122,7 +160,7 @@ def unzip_main():
                         break
 
                 p = Process(target=try_unzip,
-                            args=(compress_file, file, password, path, jap, index, result_list,))
+                            args=(compress_file.path, file, password, path, jap, index, result_list,))
                 p.start()
                 process[index] = p
                 progress += 1
@@ -131,7 +169,7 @@ def unzip_main():
                     p.join()
                     result = result_list[index]
                     if not file:
-                        progress = len(file_list)
+                        progress = len(filtered_list)
                         break
             else:
                 # 等待所有进程结束
@@ -142,22 +180,21 @@ def unzip_main():
             if not result == 0:  # 解压失败，密码错误或其他错误
                 continue
 
-            logger.info(' 解压完成： [' + compress_file + '] 使用密码： [' + password + '] ,删除压缩文件：' + str(
-                del_after_unzip))
-            pk_logger.gui.update_progress(progress, len(file_list), '完成')
+            logger.info(f"解压完成： [' {compress_file} '] 使用密码： [' {password} '] ,删除压缩文件：'{compress_file.del_after_unzip}")
+            pk_logger.gui.update_progress(progress, len(filtered_list), '完成')
             # 删除已解压的压缩文件
-            if del_after_unzip:
-                if file_ops.is_volume_zip(compress_file):
-                    for volume in file_ops.volume_zip_list(compress_file):
+            if compress_file.del_after_unzip:
+                if file_ops.is_volume_zip(compress_file.path):
+                    for volume in file_ops.volume_zip_list(compress_file.path):
                         file_ops.delete_file(volume)
                 else:
-                    file_ops.delete_file(compress_file)
+                    file_ops.delete_file(compress_file.path)
             # 检查是否套娃并添加到解压队列或过滤文件,整理文件去文件夹套娃
             file_ops.recheck(path)
             break
         else:
             # 所有密码都尝试失败，将压缩包添加到失败列表
-            logger.info(' 文件[' + compress_file + ']解压失败,无匹的解压码')
+            logger.info(f" 文件[' {compress_file} ']解压失败,无匹的解压码")
         # 刷新ui中未完成list
         pk_logger.gui.add2lisbox(main.task_queue)
 
@@ -227,7 +264,7 @@ def get_namelist(file_path, password_list):
         out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True).communicate()
         if err:
             if 'Cannot open the file as archive' in err.decode('gbk'):
-                return None
+                return None, None
             if 'Wrong password' in err.decode('gbk'):
                 continue
         if out:
