@@ -124,13 +124,13 @@ def volume_zip_list(file_path):
     re_zip = re.search(pattern_zip, basename)
     # 使用捕获到的文件名改写正则
     if re_7z:
-        filename = re_7z.group(1)
+        filename = re.escape(re_7z.group(1))
         pattern = r'{}\.\d{{3}}\b'.format(filename)  # 用于捕获分卷标识（如.001，.002）前的名称
     elif re_rar:
-        filename = re_rar.group(1)
+        filename = re.escape(re_rar.group(1))
         pattern = r'{}\.part\d+'.format(filename)  # 标识如.part1,.part2
     elif re_zip:
-        filename = re_zip.group(1)
+        filename = re.escape(re_zip.group(1))
         pattern = r'{}\.z[i\d][p\d]\b'.format(filename)
     else:
         return  # 7z和rar和zip的分卷命名正则都无法命中
@@ -144,8 +144,8 @@ def volume_zip_list(file_path):
             if not file == match.group():
                 new_path = os.path.join(dirname, match.group())
                 os.renames(path, new_path)
-                path = new_path
                 logger.info('修改分卷名为7zip易识别格式[ {} ] -> [ {} ]'.format(path, new_path))
+                path = new_path
             zip_list.append(path)
     return zip_list
 
