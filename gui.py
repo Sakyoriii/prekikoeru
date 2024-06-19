@@ -142,8 +142,8 @@ def on_drop(files):
 
     qlist = list(main.task_queue.queue)
     if process == 'unzip':
-        for zip, isdel in qlist:
-            zlist.append(zip)
+        for zip in qlist:
+            zlist.append(zip.path)
     else:
         for zip in qlist:
             zlist.append(zip)

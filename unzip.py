@@ -98,7 +98,7 @@ def unzip_main():
 
         jap = compress_file.pre_extract()
         if jap:
-            logger.info(' 检测到日文乱码，使用： [SHIFT_JIS] 编码尝试解压： [' + compress_file + '] 文件')
+            logger.info(' 检测到日文乱码，使用： [SHIFT_JIS] 编码尝试解压： [' + compress_file.name + '] 文件')
 
         #  前置过滤器
         filtered_list = file_ops.pre_filter(compress_file.file_list)
