@@ -55,6 +55,8 @@ def pre_filter(file_list):
 
 
 def filter_files(path):
+    if not os.path.exists(path):
+        path = get_similar_path(path)
     for root, dirs, files in os.walk(path):
         if dirs and main.filte_dir:
             for dir in dirs:
@@ -210,9 +212,9 @@ def scan_file(path, delete):
     #             main.filter_queue.put(file_path)
 
 
-def recheck(path):
+def recheck(path, unzip_from: unzip.Zip):
     # 去文件夹套娃
-    path = rm_taowadir(path)
+    path = rm_taowadir(path, unzip_from.RJ_code)
     # 若无套娃压缩，则加入下一任务（过滤）队列
     if not find_zip(path, main.del_after_reunzip):
         main.next_queue.put(path)
@@ -258,7 +260,7 @@ def find_zip(path, delete):
             logger.debug(' 尝试相似路径 [{}]'.format(similar))
             return find_zip(similar, delete)
 
-    logger.debug(' 文件 [{}] 无法识别,请检查文件是否可解压及密码是否匹配'.format(path))
+    logger.info(' 文件 [{}] 无法识别,请检查文件是否可解压及密码是否匹配'.format(path))
     return False
 
 
@@ -317,7 +319,7 @@ def last_dir(path):
 
 
 #  套娃文件夹
-def rm_taowadir(path):
+def rm_taowadir(path, RJ: str = None):
     # 向前找到最外层文件夹，直至OUTPUT
     rel = os.path.relpath(path, main.output_path)
     rel_path = rel.split('\\')
@@ -327,14 +329,15 @@ def rm_taowadir(path):
     print('checkTW -- first :{} , last :{} '.format(first, last))
     rel = os.path.relpath(last, main.output_path)
     rel_path = rel.split('\\')
-    if len(rel_path) > 1:
-        rj = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(rel.upper())
-        if rj:
-            new_path = last + '-' + rj.group()
-            os.rename(last, new_path)
-            logger.info(' 移除套娃文件夹前重命名保留RJ：  [{}] -> [{}]'.format(last, new_path))
-            last = new_path
 
+    rj = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(rel.upper())
+    if rj or RJ:
+        new_path = last + '-' + (rj.group() if rj else RJ)
+        os.rename(last, new_path)
+        logger.info(' 文件夹重命名插入RJ：  [{}] -> [{}]'.format(last, new_path))
+        last = new_path
+
+    if len(rel_path) > 1:
         try:
             shutil.move(last, main.output_path)
         except shutil.Error as err:

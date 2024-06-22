@@ -26,12 +26,19 @@ class Zip:
 
         self.filename, self.extension = os.path.splitext(self.name)  # 文件名，文件扩展名
         self.pw_list.insert(0, self.filename)
+
+        self.RJ_code = None
         # 匹配文件名中Rj号，插入密码表
-        RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(self.filename.upper())
-        if RJ:
-            self.pw_list.insert(0, RJ.group())
+        RJ = self.getRJ(self.name)
+        if self.RJ_code:
+            self.pw_list.insert(0, RJ)
 
         self.file_list = []
+
+    def getRJ(self, string: str):
+        RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(string.upper())
+        if RJ:
+            self.RJ_code = RJ.group()
 
     def __str__(self):
         return self.path
@@ -98,7 +105,7 @@ def unzip_main():
 
         jap = compress_file.pre_extract()
         if jap:
-            logger.info(' 检测到日文乱码，使用： [SHIFT_JIS] 编码尝试解压： [' + compress_file.name + '] 文件')
+            logger.info(' 检测到日文乱码，使用： [SHIFT_JIS] 编码尝试解压： [' + compress_file.filename + '] 文件')
 
         #  前置过滤器
         filtered_list = file_ops.pre_filter(compress_file.file_list)
@@ -135,7 +142,9 @@ def unzip_main():
                         break
                     if not wait:
                         index = (index + 1) % max
-
+                    else:
+                        pk_logger.gui.update_progress(progress, len(filtered_list),
+                                                      '{} : 尝试匹配密码[{}]'.format(compress_file, password))
                 # 发现空线程，创建任务
                 if p:
                     result = result_list[index]
@@ -190,7 +199,7 @@ def unzip_main():
                 else:
                     file_ops.delete_file(compress_file.path)
             # 检查是否套娃并添加到解压队列或过滤文件,整理文件去文件夹套娃
-            file_ops.recheck(path)
+            file_ops.recheck(path,compress_file)
             break
         else:
             # 所有密码都尝试失败，将压缩包添加到失败列表
