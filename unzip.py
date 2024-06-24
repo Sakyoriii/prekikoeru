@@ -29,9 +29,9 @@ class Zip:
 
         self.RJ_code = None
         # 匹配文件名中Rj号，插入密码表
-        RJ = self.getRJ(self.name)
+        self.getRJ(self.name)
         if self.RJ_code:
-            self.pw_list.insert(0, RJ)
+            self.pw_list.insert(0, self.RJ_code)
 
         self.file_list = []
 
@@ -111,9 +111,9 @@ def unzip_main():
         filtered_list = file_ops.pre_filter(compress_file.file_list)
         #  套娃压缩包在原路径解压，其他解压到output/压缩包名
         if main.output_path not in compress_file.path:
-            path = os.path.join(main.output_path, compress_file.filename)
+            output_path = os.path.join(main.output_path, compress_file.filename)
         else:
-            path = compress_file.father  # 文件路径
+            output_path = compress_file.father  # 文件路径
 
         # 开始使用7zip解压缩文件
         for password in pw_list:
@@ -169,7 +169,7 @@ def unzip_main():
                         break
 
                 p = Process(target=try_unzip,
-                            args=(compress_file.path, file, password, path, jap, index, result_list,))
+                            args=(compress_file.path, file, password, output_path, jap, index, result_list,))
                 p.start()
                 process[index] = p
                 progress += 1
@@ -199,7 +199,7 @@ def unzip_main():
                 else:
                     file_ops.delete_file(compress_file.path)
             # 检查是否套娃并添加到解压队列或过滤文件,整理文件去文件夹套娃
-            file_ops.recheck(path,compress_file)
+            file_ops.recheck(output_path, compress_file)
             break
         else:
             # 所有密码都尝试失败，将压缩包添加到失败列表
