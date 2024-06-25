@@ -330,13 +330,14 @@ def rm_taowadir(path, RJ: str = None):
     rel = os.path.relpath(last, main.output_path)
     rel_path = rel.split('\\')
     # 若最后一个文件夹名不包含Rj，则从相对路径中或RJ参数中补充Rj
-    if not re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(last.upper()):
+    new_path = None
+    if not re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(last.split('\\')[-1].upper()):
         rj = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(rel.upper())
         if rj or RJ:
             new_path = last + '-' + (rj.group() if rj else RJ)
             os.rename(last, new_path)
             logger.info(' 文件夹重命名插入RJ：  [{}] -> [{}]'.format(last, new_path))
-            path = new_path
+            last = new_path
 
     if len(rel_path) > 1:
         try:
@@ -352,5 +353,5 @@ def rm_taowadir(path, RJ: str = None):
         basename = last.split('\\')[-1]
         new_path = os.path.join(main.output_path, basename)
         logger.info(' 移除套娃文件夹： [{}] -> [{}]'.format(path, new_path))
-        path = new_path
-    return path
+
+    return new_path if new_path else path
