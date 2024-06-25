@@ -12,28 +12,26 @@ import filetype
 import main
 import file_ops
 import pk_logger
+from timeline import Archive
 
 logger = pk_logger.Pk_logger('unzip_logger', 'log.txt').add_log_handler().get_logger()
 
 
-class Zip:
+class Zip(Archive):
 
-    def __init__(self, file, password_list: list, del_after_unzip: bool):
-        self.path = file
-        self.father, self.name = os.path.split(file)  # 所在文件夹,文件名
+    def __init__(self, file, password_list: list, del_after_unzip: bool, note: str = None):
+        super(Zip, self).__init__(file)
         self.pw_list = password_list
         self.del_after_unzip = del_after_unzip
-
-        self.filename, self.extension = os.path.splitext(self.name)  # 文件名，文件扩展名
         self.pw_list.insert(0, self.filename)
-
         self.RJ_code = None
-        # 匹配文件名中Rj号，插入密码表
+        # 匹配文件名或备注中Rj号，插入密码表
         self.getRJ(self.name)
+        if note:
+            self.getRJ(note)
         if self.RJ_code:
             self.pw_list.insert(0, self.RJ_code)
 
-        self.file_list = []
 
     def getRJ(self, string: str):
         RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(string.upper())
@@ -277,7 +275,7 @@ def get_namelist(file_path, password_list):
             if 'Wrong password' in err.decode('gbk'):
                 continue
         if out:
-            index = re.search(r'\.part(\d+)$|\.(\d{3})$', file_path)
+            index = re.search(r'\.part(\d+)$|\.z(\d{2})$|\.(\d{3})$', file_path)
             for line in out.strip().decode('gbk').split('\n'):
                 match = re.search(pattern, line)
                 if match:
@@ -285,11 +283,15 @@ def get_namelist(file_path, password_list):
 
             if namelist:
                 if index:
-                    next_volume = int(index.group(1)) + 1
+                    for i in range(1, 4):
+                        if index.group(i):
+                            int_index = int(index.group(i)) + 1
+                            next_volume = str(int_index).zfill(i)
                     next_path = re.sub(r'\d+$', str(next_volume), file_path)
                     if os.path.exists(next_path):
-                        append_list, password = get_namelist(next_path, [password])
-                        namelist = namelist + append_list
+                        append_list, _ = get_namelist(next_path, [password])
+                        if append_list:
+                            namelist = namelist + append_list
                 namelist = list(set(namelist))
                 return namelist, password
     return None, None

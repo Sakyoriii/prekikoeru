@@ -146,7 +146,7 @@ def on_drop(files):
             zlist.append(zip.path)
     else:
         for zip in qlist:
-            zlist.append(zip)
+            zlist.append(zip.path)
 
     if files:
         for item in files:
