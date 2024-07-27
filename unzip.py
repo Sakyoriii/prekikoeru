@@ -32,7 +32,6 @@ class Zip(Archive):
         if self.RJ_code:
             self.pw_list.insert(0, self.RJ_code)
 
-
     def getRJ(self, string: str):
         RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(string.upper())
         if RJ:
@@ -51,10 +50,13 @@ class Zip(Archive):
         return bool(file_list)
 
     def pre_extract(self):
-        new_list, jap = pre_extract(self.file_list)
-        if jap:
-            self.file_list = new_list
-        return jap
+        for i in range(len(self.file_list)):
+            if file_ops.encode_detect(self.file_list[i]):
+                break
+        else:
+            return False
+        self.file_list, _ = get_namelist(self.path, self.pw_list, True)
+        return True
 
 
 def is_archive(file):  # 判断是否是压缩文件，只判断常见几种类型足够了
@@ -263,11 +265,14 @@ def get_zip_namelist(file):
 #     logger.info(' 文件[' + file + ']解压失败,无匹的解压码')
 
 
-def get_namelist(file_path, password_list):
+def get_namelist(file_path, password_list, jap=False):
     pattern = r'^20\d{2}-[01]\d-[0-3]\d [0-2]\d:[0-6]\d:[0-6]\d \.\S{4}.{28}(.+?)\r'
     namelist = []
     for password in password_list:
         cmd = ['7z', 'l', file_path, '-p{}'.format(password)]
+        if jap:
+            # 使用SHIFT_JIS编码解压
+            cmd.append('-mcp=932')
         out, err = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True).communicate()
         if err:
             if 'Cannot open the file as archive' in err.decode('gbk'):
@@ -307,12 +312,7 @@ def pre_extract(file_list):
         if file_ops.encode_detect(file):
             # 检测到日文编码SHIFT_JIS
             jp_list = []
-            for name in file_list:
-                try:
-                    encode_name = name.encode('gbk').decode('SHIFT_JIS')
-                except UnicodeEncodeError:
-                    encode_name = name.encode('utf-8').decode('SHIFT_JIS')
-                jp_list.append(encode_name)
+            get_namelist()
             return jp_list, True
 
     return file_list, False
