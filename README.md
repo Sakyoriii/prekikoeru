@@ -40,16 +40,16 @@ path:
 logical_deletion: true
 # 解压后是否自动删除
 del_after_unzip: false
-# 合并分卷后自动删除分卷(已废弃)
-del_after_merged: true
-# 合并的分卷解压后自动删除(已废弃）
-del_after_merged_and_unzip: true
-# 解压套娃压缩后自动删除,建议开启，关闭影响文件去套娃功能
+# 合并分卷后自动删除分卷
+#del_after_merged: true
+# 合并的分卷解压后自动删除（废弃）
+#del_after_merged_and_unzip: true
+# 解压套娃压缩后自动删除,建议开启，关闭影响文件去套娃功能（废弃）
 del_after_reunzip: true
 # 自动跳到下一步   exp：主要分三步, 解压 -> 过滤 -> 重命名
 auto_next: true
 # 多线程解压(改成多进程了)
-max_thread: 12
+max_thread: 8
 
 # 解压后过滤不需要的文件或文件夹，使用正则
 filter:
@@ -58,9 +58,9 @@ filter:
   keyword:
     # 根据需求自选选择过滤关键词，行首添加 “#” 井号关闭该规则，删除井号开启规则。自定义规则清自行百度/谷歌：正则表达式
      # 过滤没有SE的WAV文件
-    - (?:SE|音)(?:[な無]し|CUT).*\.WAV$|NOSE.*\.WAV$
+    - (?:SE|音|音效)(?:[な無]し|CUT).*\.WAV$|(?:NO|无)(?:SE|音效).*\.WAV$
     # 过滤没有SE的文件夹
-    - WAV.*SE(?:[な無]し|CUT)[^\\]*$|SE(?:[な無]し|CUT)[^\.]WAV[^\\]*$|WAV.*NOSE[^\\]*$|NOSE[^\.]*WAV[^\\]*$
+    - WAV.*(?:SE|音|音效)(?:[な無]し|CUT)[^\\]*$|(?:SE|音|音效)(?:[な無]し|CUT)[^\.]WAV[^\\]*$|WAV.*(?:NO|无)(?:SE|音效)[^\\]*$|(?:NO|无)(?:SE|音效)[^\.]*WAV[^\\]*$
     # 过滤所有没有SE的文件和文件夹
     # - (?:SE|音)(?:[な無]し|CUT)|NOSE
 
@@ -90,6 +90,7 @@ renamer_tags_ordered_list:
   - - 标签2
     - 替换2
   - 标签3
+
 
 ~~~
 
