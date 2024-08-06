@@ -20,7 +20,7 @@
  - 拖拽需要解压文件到项目窗口内，点击'开冲'
 
    
-![example](https://cdn.jsdelivr.net/gh/Sakyoriii/PicGonCDN//img/202408061702433.mp4)
+[![example](https://cdn.jsdelivr.net/gh/Sakyoriii/PicGonCDN//img/202403020102349.png)](https://cdn.jsdelivr.net/gh/Sakyoriii/PicGonCDN//img/202408061702433.mp4)
 
 
 配置文件
