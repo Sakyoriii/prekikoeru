@@ -46,10 +46,10 @@ del_after_unzip: false
 #del_after_merged_and_unzip: true
 # 解压套娃压缩后自动删除,建议开启，关闭影响文件去套娃功能（废弃）
 del_after_reunzip: true
-# 自动跳到下一步   exp：主要分三步, 解压 -> 过滤 -> 重命名
+# 自动跳到下一步   exp：主要分三步, 解压(解压-去除冗余文件夹-寻找压缩包-解压......loop) -> 插入RJ到文件夹名 -> 过滤 -> 根据RJ重命名
 auto_next: true
-# 多线程解压(改成多进程了)
-max_thread: 8
+# 多线程解压(改成多进程了) 请根自己机器配置设置，参考：13600KF + Samsung 980 推荐设置 = 6
+max_thread: 6
 
 # 解压后过滤不需要的文件或文件夹，使用正则
 filter:
@@ -90,6 +90,7 @@ renamer_tags_ordered_list:
   - - 标签2
     - 替换2
   - 标签3
+
 
 
 ~~~
