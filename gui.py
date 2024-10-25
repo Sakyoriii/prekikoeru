@@ -6,16 +6,16 @@ from tkinter import ttk
 
 import windnd
 
-import config
-import main
-import file_ops
 import pk_logger
-import unzip
 
-global flag
+import task_runner
+
+UI = None
+output = ''
 
 
 class Console(tk.Frame):
+
     def __init__(self, master, *args, **kwargs):
         tk.Frame.__init__(self, master, *args, **kwargs)
 
@@ -24,7 +24,6 @@ class Console(tk.Frame):
         self.val3 = tk.StringVar()
         self.val2.set('待机')
         self.val3.set(' ')
-
 
         self.label1 = tk.Label(self, text='待处理')
 
@@ -37,18 +36,18 @@ class Console(tk.Frame):
         self.radio1 = tk.Radiobutton(self.labelframe, text='解压', variable=self.val, value='unzip',
                                      command=lambda: self.clear())
         self.radio1.select()
-        self.radio2 = tk.Radiobutton(self.labelframe, text='过滤', variable=self.val, value='filter',
+        self.radio2 = tk.Radiobutton(self.labelframe, text='插入RJ', variable=self.val, value='insert_rj',
                                      command=lambda: self.clear())
-        self.radio3 = tk.Radiobutton(self.labelframe, text='重命名', variable=self.val, value='rename',
+        self.radio3 = tk.Radiobutton(self.labelframe, text='过滤', variable=self.val, value='filter',
                                      command=lambda: self.clear())
-        # self.radio4 = tk.Radiobutton(self.labelframe, text='结果', variable=self.val, value='result',
-        #                              command=lambda: self.result())
+        self.radio4 = tk.Radiobutton(self.labelframe, text='重命名', variable=self.val, value='rename',
+                                     command=lambda: self.clear())
 
         self.btn1 = tk.Button(self, text='清空', command=lambda: self.clear())
         self.btn2 = tk.Button(self, text='开冲', command=lambda: self.dash())
         self.btn3 = tk.Button(self, text='设置', command=lambda: os.system('start ' + 'config.yaml'))
 
-        self.btn4 = tk.Button(self, text='输出', command=lambda: os.system('start ' + main.output_path))
+        self.btn4 = tk.Button(self, text='输出', command=lambda: os.system('start ' + output))
         self.btn5 = tk.Button(self, text='密码', command=lambda: os.system('start ' + 'password.txt'))
 
         self.frame = tk.Frame(self)
@@ -68,6 +67,7 @@ class Console(tk.Frame):
         self.radio1.pack(side='top')
         self.radio2.pack(side='top')
         self.radio3.pack(side='top')
+        self.radio4.pack(side='top')
         # self.radio4.pack(side='top')
         self.btn1.pack()
         self.btn2.pack()
@@ -83,19 +83,24 @@ class Console(tk.Frame):
         self.text.update()  # 更新显示的文本，不加这句插入的信息无法显示
         self.text.see(tk.END)  # 始终显示最后一行，不加这句，当文本溢出控件最后一行时，不会自动显示最后一行
 
-    def result(self):
-        self.add2lisbox(main.result_queue)
-
     def clear(self):
-        main.task_queue = queue.Queue()
-
+        task_runner.clear()
+        task_runner.already_add = []
         self.add2lisbox(queue.Queue())
 
     def add2lisbox(self, queue: queue.Queue):
         self.listbot1.delete(0, tk.END)
         qlist = list(queue.queue)
         for item in qlist:
-            self.listbot1.insert(tk.END, item)
+            record = item.get_current_record()
+            self.listbot1.insert(tk.END, (record.input_file.path, record.ops))
+        self.update()
+
+    def add2lis(self, list):
+        self.listbot1.delete(0, tk.END)
+        for item in list:
+            record = item.get_current_record()
+            self.listbot1.insert(tk.END, f"[{record.input_file.name}] == {record.ops} == > [{record.output_file.name}]")
         self.update()
 
     def update_progress(self, value, maximum, title):
@@ -108,67 +113,79 @@ class Console(tk.Frame):
         self.update()
 
     def dash(self):
-        config.init()
 
         self.btn2.configure(stat=tk.DISABLED)
         process = str(self.val.get())
-        if process == 'unzip':
-            unzip.unzip_main()
-            self.val.set('filter')
-        elif process == 'filter':
-            file_ops.filter_main()
-            self.val.set('rename')
-        elif process == 'rename':
-            file_ops.rename_main()
-        else:
-            self.btn2.configure(stat=tk.NORMAL)
-            return
+        # task_list = list(main.task_queue.queue)
+        static_task_list = ['unzip', 'insert_rj', 'filter', 'rename']
+        index = static_task_list.index(process)
+        exec(f'task_runner.{process}_loop(self)')
+
+
+        # if process == 'unzip':
+        #     task_runner.unzip_loop(self)
+        #     self.val.set('insert_rj')
+        # elif process == 'insert_rj':
+        #     # for timeline in task_list:
+        #     task_runner.insert_rj_loop(self)
+        #     # self.add2lisbox(main.task_queue)
+        #     self.val.set('filter')
+        # elif process == 'filter':
+        #     # for timeline in task_list:
+        #     #     task_runner.filter_main(timeline)
+        #     # main.next_queue.put(timeline)
+        #     # self.add2lisbox(main.next_queue)
+        #     task_runner.filter_loop(self)
+        #     self.val.set('rename')
+        # elif process == 'rename':
+        #     # task_runner.rename_main()
+        #     task_runner.remame_loop(self)
+        #     self.btn2.configure(stat=tk.NORMAL)
+        #     return
+
+        self.btn2.configure(stat=tk.NORMAL)
+        if index < len(static_task_list) - 1:
+            self.val.set(static_task_list[index + 1])
+
+            if task_runner.conf.auto_next:
+                self.dash()
 
         # 当前队列完成，把下一个队列的任务加入到任务队列后清空任务队列
-        if not main.next_queue.empty():
-            main.task_queue = main.next_queue
-            main.next_queue = queue.Queue()
+        # if not main.next_queue.empty():
+        #     main.task_queue = main.next_queue
+        #     main.next_queue = queue.Queue()
 
-        self.add2lisbox(main.task_queue)
-        if main.auto_next and not process == 'rename':
-            self.after(1000, func=self.dash)
-        self.btn2.configure(stat=tk.NORMAL)
+        # self.add2lisbox(main.task_queue)
+        # if True and not process == 'rename':
+        #     task_runner.remame_loop(self)
+        #     self.clear()
+        # self.btn2.configure(stat=tk.NORMAL)
 
 
 def on_drop(files):
     print('start')
-    zlist = []
-    process = str(pk_logger.gui.val.get())
+    global UI
+    process = str(UI.val.get())
 
-    qlist = list(main.task_queue.queue)
-    if process == 'unzip':
-        for zip in qlist:
-            zlist.append(zip.path)
-    else:
-        for zip in qlist:
-            zlist.append(zip.path)
-
+    task_runner.reload()
     if files:
-        for item in files:
-            file = item.decode('gbk')
-            if file in zlist:
-                continue
-            if process == 'unzip':
-                file_ops.find_zip(file, main.del_after_unzip)
-            else:
-                main.task_queue.put(file)
-            pk_logger.gui.add2lisbox(main.task_queue)
+        for i in range(len(files)):
+            files[i] = files[i].decode('gbk')
+
+        i = ['unzip', 'insert_rj', 'filter', 'rename'].index(process)
+        task_runner.create_timeline(files, i, UI)
 
 
 def init_ui():
     window = tk.Tk()
-    window.title("prekikoeru")
+    window.title("prekikoeru_v0.1")
     window.geometry('1280x648')
     console = Console(window)
     console.pack(fill=tk.BOTH, expand=True)
-
+    global output
+    output = task_runner.conf.output_path
     pk_logger.gui = console
-
+    global UI
+    UI = console
     windnd.hook_dropfiles(window, func=on_drop)
-    config.init()
     window.mainloop()

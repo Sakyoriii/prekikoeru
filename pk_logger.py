@@ -4,7 +4,6 @@ from logging import handlers
 default_formatter: logging.Formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 gui = None
 
-
 class LogHandler(logging.Handler):
     def __init__(self, name):
         logging.Handler.__init__(self)
@@ -17,10 +16,7 @@ class LogHandler(logging.Handler):
         # try:
         msg = self.format(record) + '\n'
         evt = gui.write(msg)
-    # except (KeyboardInterrupt, SystemExit) as err:
-    #     raise err
-    # except Exception:
-    #     self.handleError(record)
+
 
 class Pk_logger(object):
     def __init__(self, name: str, file: str = None):
@@ -44,3 +40,4 @@ class Pk_logger(object):
         log_handler = LogHandler(self.name)
         self.__logger.addHandler(log_handler)
         return self
+
