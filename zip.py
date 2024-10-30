@@ -1,5 +1,3 @@
-
-
 import re
 
 import pk_logger
@@ -10,12 +8,14 @@ logger = pk_logger.Pk_logger('unzip_logger', 'log.txt').add_log_handler().get_lo
 
 class Zip(Archive):
 
-    def __init__(self, file, password_list: list = [], del_after_unzip: bool = False,jap:bool = False, note: str = None,
+    def __init__(self, file, password_list: list = [], del_after_unzip: bool = False, jap: bool = False
+                 , covered: bool = False, note: str = None,
                  volumes: list = None):
         super(Zip, self).__init__(file)
         self.pw_list = []
         self.del_after_unzip = del_after_unzip
-        self.jap =jap
+        self.jap = jap
+        self.covered = covered
         self.RJ_code = None
         # 匹配文件名或备注中Rj号，插入密码表
         self.getRJ(self.name)
@@ -35,4 +35,3 @@ class Zip(Archive):
         self.pw_list.insert(0, self.filename)
         if self.RJ_code:
             self.pw_list.insert(0, self.RJ_code)
-

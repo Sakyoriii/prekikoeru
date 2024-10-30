@@ -2,11 +2,10 @@ import logging
 import multiprocessing
 import os
 
-
 from multiprocessing import Process
 
 import file_ops
-from seven_z_driver import SevenZDriver, JapDecodeError
+from seven_z_driver import SevenZDriver, JapDecodeError, GetNamelistError
 from zip import Zip
 
 
@@ -25,9 +24,15 @@ class Unzipper():
             for password in passwords:
                 try:
                     volume_namelist = self.driver.get_namelist(volume, password)
+                except GetNamelistError as err:
+                    if 'Is not archive' in err.error_info:
+                        zip.covered = True
+                        volume_namelist = self.driver.get_namelist(volume, password, False, True)
+                    else:
+                        break
                 except JapDecodeError:
                     zip.jap = True
-                    volume_namelist = self.driver.get_namelist(volume, password, True)
+                    volume_namelist = self.driver.get_namelist(volume, password, True, zip.covered)
                 if volume_namelist:
                     namelist.extend(volume_namelist)
                     start_at = passwords.index(password)
@@ -60,7 +65,7 @@ class Unzipper():
             if not password:
                 self.logger.info(f" 文件[' {zip.path} ']解压失败,无匹的解压码")
                 return None
-            elif len(zip.file_list) == 1:
+            elif len(zip.file_list) == 1 or zip.covered:
                 self.logger.info(f" 文件[' {zip.path} ']解压完成")
             elif size / len(zip.file_list) > 25.6:  # 由于前置过滤的存在，计算并不完全准确
                 self.logger.info(f" 使用多线程解压 [' {zip.path} ']")
@@ -75,12 +80,13 @@ class Unzipper():
     def password_collision(self, zip: Zip, output_path, thread_size):
         multi_threading = False
         result_list = multiprocessing.Manager().list([7] * thread_size)
+        first_file = '2.zip' if zip.covered else zip.file_list[0]
         index = 0
         threads = [False] * thread_size
         for password in zip.pw_list:
             index = (index + 1) % thread_size
             if not multi_threading:
-                unzip_thread(self.driver, zip, zip.file_list[0], password, output_path, result_list, 0)
+                unzip_thread(self.driver, zip, first_file, password, output_path, result_list, 0)
                 returncode, msg = result_list[0]
                 if returncode == 0:
                     zip.pw_list = [password]
@@ -94,7 +100,7 @@ class Unzipper():
                         return threads[index].name
 
                 p = Process(name=password, target=unzip_thread,
-                            args=(self.driver, zip, zip.file_list[0], password, output_path, result_list, index))
+                            args=(self.driver, zip, first_file, password, output_path, result_list, index))
                 p.start()
                 threads[index] = p
 
@@ -168,7 +174,7 @@ class Unzipper():
 
     def single_threaded_unzip(self, zip: Zip, output_path):
         for password in zip.pw_list:
-            returncode, msg = self.driver.unzip(zip.path, None, password, output_path, zip.jap)
+            returncode, msg = self.driver.unzip(zip.path, None, password, output_path, zip.jap, zip.covered)
             if returncode == 0:
                 self.logger.info(f'[{zip.path}]解压完成')
                 return True
@@ -222,14 +228,12 @@ class Unzipper():
             self.logger.info(log)
             return True
 
-
-
         self.logger.info(' 文件 [{}] 无法识别,请检查文件是否可解压及密码是否匹配'.format(path))
         return False
 
 
 def unzip_thread(driver, zip: Zip, output_file, password, output_path, result_list, index):
-    returncode, msg = driver.unzip(zip.path, output_file, password, output_path, zip.jap)
+    returncode, msg = driver.unzip(zip.path, output_file, password, output_path, zip.jap, zip.covered)
     # print(msg)
     if msg:
         if "No files to process" in msg:

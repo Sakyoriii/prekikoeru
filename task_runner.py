@@ -163,7 +163,7 @@ def rename_loop(progress_ui):
         father = os.path.join(conf.output_path, rel.split('\\')[0])
         path_list.append(father)
     output_list = dlrenamer.ez_client.run_renamer(path_list)
-    if len(output_list) > 0 and len(output_list) == len(timelines):
+    if output_list and len(output_list) > 0 and len(output_list) == len(timelines):
         for i in range(len(output_list)):
             timelines[i].add_record(Record(Archive(path_list[i]), 'rename', Archive(output_list[i])))
     progress_ui.add2lis(timelines)
