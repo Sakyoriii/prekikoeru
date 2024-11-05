@@ -20,6 +20,7 @@ filter = filter.Filter(conf.filter_kw, conf.filter_dir, logger)
 unzipper = Unzipper(SevenZDriver(), logger)
 already_add = []
 timelines = []
+done = []
 
 
 #  套娃文件夹
@@ -93,7 +94,7 @@ def insert_RJ(timeline: Timeline):
 
 
 def unzip_loop(progress_ui):
-    for timeline in timelines:
+    for index, timeline in enumerate(timelines):
         ops = timeline.records[-1].ops
         if not ops == 'find_zip':
             continue
@@ -131,6 +132,8 @@ def unzip_loop(progress_ui):
                 timeline.add_record(Record(new_archive, 'find_zip', zip_list[0]))
             else:
                 for find in zip_list:
+                    done.append(timeline)
+                    timelines.pop(index)
                     t = Timeline(new_archive, 'find_zip', find)
                     timelines.append(t)
         progress_ui.add2lis(timelines)
@@ -167,6 +170,8 @@ def rename_loop(progress_ui):
         for i in range(len(output_list)):
             timelines[i].add_record(Record(Archive(path_list[i]), 'rename', Archive(output_list[i])))
     progress_ui.add2lis(timelines)
+    for t in done:
+        logger.info(t)
     for t in timelines:
         logger.info(t)
 
