@@ -131,9 +131,9 @@ def unzip_loop(progress_ui):
             if len(zip_list) == 1:
                 timeline.add_record(Record(new_archive, 'find_zip', zip_list[0]))
             else:
+                done.append(timeline)
+                timelines.pop(index)
                 for find in zip_list:
-                    done.append(timeline)
-                    timelines.pop(index)
                     t = Timeline(new_archive, 'find_zip', find)
                     timelines.append(t)
         progress_ui.add2lis(timelines)
