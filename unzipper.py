@@ -28,7 +28,10 @@ class Unzipper():
                     if 'Is not archive' in err.error_info:
                         zip.covered = True
                         volume_namelist = self.driver.get_namelist(volume, password, False, True)
+                    elif 'Wrong password' in err.error_info:
+                        continue
                     else:
+                        self.logger.error(err.error_info)
                         break
                 except JapDecodeError:
                     zip.jap = True
