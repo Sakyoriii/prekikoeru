@@ -25,7 +25,7 @@ class Unzipper():
                 try:
                     volume_namelist = self.driver.get_namelist(volume, password)
                 except GetNamelistError as err:
-                    if 'Is not archive' in err.error_info:
+                    if zip.extension in ['.mp4','.mkv']:
                         zip.covered = True
                         volume_namelist = self.driver.get_namelist(volume, password, False, True)
                     elif 'Wrong password' in err.error_info:
@@ -195,6 +195,7 @@ class Unzipper():
             if similar:
                 self.logger.debug(' 尝试相似路径 [{}]'.format(similar))
                 return self.find_zip(similar, passwords, delete_after_unzip, already_add, zip_list)
+
 
         if path in already_add:
             return False

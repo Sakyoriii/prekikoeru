@@ -4,6 +4,7 @@ import re
 import shutil
 
 import config
+import password
 import dlrenamer.ez_client
 import file_ops
 import filter
@@ -16,6 +17,7 @@ from unzipper import Unzipper
 
 logger = pk_logger.Pk_logger('task_runner', 'log.txt').add_log_handler().get_logger()
 conf = config.Config()
+passwords = password.read_password()
 filter = filter.Filter(conf.filter_kw, conf.filter_dir, logger)
 unzipper = Unzipper(SevenZDriver(), logger)
 already_add = []
@@ -24,7 +26,7 @@ done = []
 
 
 #  套娃文件夹
-def rm_taowadir(path):
+def unnest(path):
     # path = timeline.get_current_record().output_file.path
     # 向前找到最外层文件夹，直至OUTPUT
     rel = os.path.relpath(path, conf.output_path)
@@ -87,7 +89,7 @@ def insert_RJ(timeline: Timeline):
 # 0.find_zip
 # 0.1.pre_filter
 # 0.2.unzip
-# 0.3.rm_taowa
+# 0.3.unnest
 # 1.insert_RJ
 # 2.post_filter
 # 3.rename
@@ -114,19 +116,21 @@ def unzip_loop(progress_ui):
                 # 文件路径
         if not unzipper.unzip(newzip, output_path, conf.max_thread, progress_ui):
             continue
+        password.hit_password(passwords, newzip.pw_list[0])
+
         output = Archive(output_path)
         timeline.add_record(Record(newzip, 'unzip', output))
         # delete_after_unzip or delete_after_reunzip
         if zip.del_after_unzip:
             for volume in zip.volumes:
                 delete_file(volume)
-        # rm_taowa
-        new_path = rm_taowadir(timeline.get_current_path())
+        # unnest
+        new_path = unnest(timeline.get_current_path())
         new_archive = Archive(new_path)
-        timeline.add_record(Record(output, 'rm_taowa', new_archive))
+        timeline.add_record(Record(output, 'unnest', new_archive))
         # find_zip
         zip_list = []
-        unzipper.find_zip(new_path, conf.passwords, conf.del_after_reunzip, already_add, zip_list)
+        unzipper.find_zip(new_path, password.get_str_passwords(passwords), conf.del_after_reunzip, already_add, zip_list)
         if len(zip_list) > 0:
             if len(zip_list) == 1:
                 timeline.add_record(Record(new_archive, 'find_zip', zip_list[0]))
@@ -140,6 +144,8 @@ def unzip_loop(progress_ui):
         # loop
         if len(zip_list) > 0:
             unzip_loop(progress_ui)
+        
+        password.write_password(password.sort_passwords(passwords, -0.1))
 
 
 def insert_rj_loop(progress_ui):
@@ -180,7 +186,7 @@ def create_timeline(files, in_progress, progress_ui):
     if in_progress == 0:
         for file in files:
             zip_list = []
-            if unzipper.find_zip(file, conf.passwords, conf.del_after_unzip, already_add, zip_list):
+            if unzipper.find_zip(file, password.get_str_passwords(passwords), conf.del_after_unzip, already_add, zip_list):
                 for zip in zip_list:
                     timeline = Timeline(Archive(file), 'find_zip', zip)
                     timelines.append(timeline)
@@ -243,3 +249,6 @@ def clear():
 def reload():
     global conf
     conf = config.Config()
+    global passwords
+    passwords = password.read_password()
+

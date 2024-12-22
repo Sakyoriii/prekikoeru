@@ -28,7 +28,6 @@ class SevenZDriver:
         print(cmd)
         result = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
         out, err = result.communicate()
-        msg = None
         if err:
             # print(err.decode('gbk'))
             msg = err.decode('gbk')

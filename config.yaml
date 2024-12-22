@@ -40,6 +40,11 @@ filter:
     - "FULL"        # 过滤不分トラック的长音频
     - "反転"        # 过滤左右音轨反转的文件和文件夹
 
+# 解压黑名单，解压时遇到黑名单内的后缀跳过解压
+blacklist:
+  - epub
+  - pptx
+
 #----------------------------------------dlsite-doujin-renamer 配置，参考:https://github.com/yodhcn/dlsite-doujin-renamer
 scaner_max_depth: 2
 scraper_locale: zh_cn

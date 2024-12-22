@@ -20,23 +20,24 @@ class Config:
         self.del_after_reunzip = config['del_after_reunzip']
         self.auto_next = config['auto_next']
         self.max_thread = config['max_thread']
+        self.blacklist = config['blacklist']
 
-        tmp = []
-        with open("password.txt", "r", encoding='utf-8') as pw:
-            for line in pw.readlines():
-                line = line.strip('\n')  # 去掉列表中每一个元素的换行符
-                tmp.append(line)
-        self.passwords = tmp
-        pw.close()
+        # tmp = []
+        # with open("password.txt", "r", encoding='utf-8') as pw:
+        #     for line in pw.readlines():
+        #         line = line.strip('\n')  # 去掉列表中每一个元素的换行符
+        #         tmp.append(line)
+        # self.passwords = tmp
+        # pw.close()
 
-    def read_password(self):
-        tmp = []
-        with open("password.txt", "r", encoding='utf-8') as pw:
-            for line in pw.readlines():
-                line = line.strip('\n')  # 去掉列表中每一个元素的换行符
-                tmp.append(line)
-        self.passwords = tmp
-        pw.close()
+    # def read_password(self):
+    #     tmp = []
+    #     with open("password.txt", "r", encoding='utf-8') as pw:
+    #         for line in pw.readlines():
+    #             line = line.strip('\n')  # 去掉列表中每一个元素的换行符
+    #             tmp.append(line)
+    #     self.passwords = tmp
+    #     pw.close()
 
     def load_config(self):
         print('load config')
@@ -50,6 +51,7 @@ class Config:
         self.del_after_reunzip = config['del_after_reunzip']
         self.auto_next = config['auto_next']
         self.max_thread = config['max_thread']
+        self.blacklist = config['blacklist']
 
 
 def get_config(path):
