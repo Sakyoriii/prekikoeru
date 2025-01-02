@@ -35,3 +35,10 @@ class Zip(Archive):
         self.pw_list.insert(0, self.filename)
         if self.RJ_code:
             self.pw_list.insert(0, self.RJ_code)
+
+    def set_note(self, note):
+        self.note = note
+        self.getRJ(note)
+        if self.RJ_code:
+            self.pw_list.insert(0, self.RJ_code)
+

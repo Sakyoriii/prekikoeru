@@ -175,12 +175,15 @@ class Renamer(object):
             try:
                 os.rename(folder_path, new_folder_path)
                 Renamer.logger.info(f'[{rjcode}] -> 重命名成功："{os.path.normpath(new_folder_path)}"\n')
+                return new_folder_path
             except FileExistsError as err:
                 filename = os.path.normpath(err.filename)
                 filename2 = os.path.normpath(err.filename2)
                 Renamer.logger.warning(f'[{rjcode}] -> 重命名失败[FileExistsError]：{err.strerror}："{filename}" -> "{filename2}"\n')
+                return 
             except OSError as err:
                 Renamer.logger.error(f'[{rjcode}] -> 重命名失败[OSError]：{str(err)}\n')
+                return 
 
     # 修改文件夹封面
     def changeIcon(self, rjcode: str, cover_url: str, icon_dir: str):

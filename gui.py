@@ -119,7 +119,7 @@ class Console(tk.Frame):
         # task_list = list(main.task_queue.queue)
         static_task_list = ['unzip', 'insert_rj', 'filter', 'rename']
         index = static_task_list.index(process)
-        exec(f'task_runner.{process}_loop(self)')
+        exec(f'task_runner.{process}_loop()')
 
 
         # if process == 'unzip':
@@ -173,7 +173,7 @@ def on_drop(files):
             files[i] = files[i].decode('gbk')
 
         i = ['unzip', 'insert_rj', 'filter', 'rename'].index(process)
-        task_runner.create_timeline(files, i, UI)
+        task_runner.create_timeline(files, i)
 
 
 def init_ui():
@@ -187,5 +187,7 @@ def init_ui():
     pk_logger.gui = console
     global UI
     UI = console
+    task_runner.progress_ui = console
+    task_runner.unzipper.progress_ui = console
     windnd.hook_dropfiles(window, func=on_drop)
     window.mainloop()

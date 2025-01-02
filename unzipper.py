@@ -5,29 +5,34 @@ import os
 from multiprocessing import Process
 
 import file_ops
-from seven_z_driver import SevenZDriver, JapDecodeError, GetNamelistError
+from seven_z_driver import SevenZDriver, JapDecodeError, GetNamelistError, NoFile2ProcessError
+
 from zip import Zip
 
 
 class Unzipper():
 
-    def __init__(self, driver: SevenZDriver, logger: logging):
-        self.driver = driver
+    def __init__(self, logger, progress_ui):
         self.logger = logger
+        self.progress_ui = progress_ui
 
     def load_namelist(self, zip: Zip):
         passwords = zip.pw_list
         namelist = []
+        driver = SevenZDriver()
         if not zip.volumes:
             zip.volumes = [zip.path]
         for volume in zip.volumes:
+            driver.set_compress_file(volume)
             for password in passwords:
+                driver.set_password(password)
                 try:
-                    volume_namelist = self.driver.get_namelist(volume, password)
+                    volume_namelist = driver.get_namelist()
                 except GetNamelistError as err:
-                    if zip.extension in ['.mp4','.mkv']:
+                    if zip.extension in ['.mp4', '.mkv']:
                         zip.covered = True
-                        volume_namelist = self.driver.get_namelist(volume, password, False, True)
+                        driver.set_covered(True)
+                        volume_namelist = driver.get_namelist()
                     elif 'Wrong password' in err.error_info:
                         continue
                     else:
@@ -35,7 +40,8 @@ class Unzipper():
                         break
                 except JapDecodeError:
                     zip.jap = True
-                    volume_namelist = self.driver.get_namelist(volume, password, True, zip.covered)
+                    driver.set_jap(True)
+                    volume_namelist = driver.get_namelist()
                 if volume_namelist:
                     namelist.extend(volume_namelist)
                     start_at = passwords.index(password)
@@ -50,7 +56,7 @@ class Unzipper():
             return True
         return False
 
-    def unzip(self, zip: Zip, output_path, thread_size, progress):
+    def unzip(self, zip: Zip, output_path, thread_size):
         size = 0
         if zip.volumes:
             for volume in zip.volumes:
@@ -72,7 +78,7 @@ class Unzipper():
                 self.logger.info(f" 文件[' {zip.path} ']解压完成")
             elif size / len(zip.file_list) > 25.6:  # 由于前置过滤的存在，计算并不完全准确
                 self.logger.info(f" 使用多线程解压 [' {zip.path} ']")
-                self.multi_threaded_unzip(zip, output_path, thread_size, progress)
+                self.multi_threaded_unzip(zip, output_path, thread_size, self.progress_ui)
                 self.logger.info(f" 文件[' {zip.path} ']解压完成")
             else:
                 self.logger.info(f" 小文件较多（{size}MB/{len(zip.file_list)}Files），使用单线程解压 [' {zip.path} ']")
@@ -89,7 +95,7 @@ class Unzipper():
         for password in zip.pw_list:
             index = (index + 1) % thread_size
             if not multi_threading:
-                unzip_thread(self.driver, zip, first_file, password, output_path, result_list, 0)
+                unzip_thread(zip, first_file, password, output_path, result_list, 0)
                 returncode, msg = result_list[0]
                 if returncode == 0:
                     zip.pw_list = [password]
@@ -103,7 +109,7 @@ class Unzipper():
                         return threads[index].name
 
                 p = Process(name=password, target=unzip_thread,
-                            args=(self.driver, zip, first_file, password, output_path, result_list, index))
+                            args=(zip, first_file, password, output_path, result_list, index))
                 p.start()
                 threads[index] = p
 
@@ -152,7 +158,7 @@ class Unzipper():
                     break
 
             p = Process(target=unzip_thread,
-                        args=(self.driver, zip, file, password, output_path, result_list, index))
+                        args=(zip, file, password, output_path, result_list, index))
             p.start()
             process[index] = p
             progress += 1
@@ -176,8 +182,10 @@ class Unzipper():
             self.logger.info(f" 文件[' {zip.path} ']解压失败,{msg}")
 
     def single_threaded_unzip(self, zip: Zip, output_path):
+        driver = SevenZDriver().set_compress_file(zip.path).set_output_path(output_path).set_jap(zip.jap).set_covered(
+            zip.covered)
         for password in zip.pw_list:
-            returncode, msg = self.driver.unzip(zip.path, None, password, output_path, zip.jap, zip.covered)
+            returncode, msg = driver.set_password(password).unzip()
             if returncode == 0:
                 self.logger.info(f'[{zip.path}]解压完成')
                 return True
@@ -195,7 +203,6 @@ class Unzipper():
             if similar:
                 self.logger.debug(' 尝试相似路径 [{}]'.format(similar))
                 return self.find_zip(similar, passwords, delete_after_unzip, already_add, zip_list)
-
 
         if path in already_add:
             return False
@@ -236,19 +243,12 @@ class Unzipper():
         return False
 
 
-def unzip_thread(driver, zip: Zip, output_file, password, output_path, result_list, index):
-    returncode, msg = driver.unzip(zip.path, output_file, password, output_path, zip.jap, zip.covered)
+def unzip_thread(zip: Zip, output_file, password, output_path, result_list, index):
+    driver = SevenZDriver().set_compress_file(zip.path).set_output_file(output_file).set_password(
+        password).set_output_path(output_path).set_jap(zip.jap).set_covered(zip.covered)
+    returncode, msg = driver.unzip()
     # print(msg)
-    if msg:
-        if "No files to process" in msg:
-            raise NoFile2ProcessError(msg)
+    # if msg:
+    #     if "No files to process" in msg:
+    #         raise NoFile2ProcessError(msg)
     result_list[index] = (returncode, msg)
-
-
-class NoFile2ProcessError(EOFError):
-    def __init__(self, error_info):
-        super(NoFile2ProcessError, self).__init__(error_info)
-        self.error_info = error_info
-
-    def __str__(self):
-        return self.error_info

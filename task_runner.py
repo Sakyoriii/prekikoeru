@@ -9,25 +9,145 @@ import dlrenamer.ez_client
 import file_ops
 import filter
 import pk_logger
-import zip
+
 from file_ops import mk_if_not_exit, logger
-from seven_z_driver import SevenZDriver
+
 from timeline import Timeline, Archive, Record
 from unzipper import Unzipper
 
 logger = pk_logger.Pk_logger('task_runner', 'log.txt').add_log_handler().get_logger()
 conf = config.Config()
 passwords = password.read_password()
+unzipper = Unzipper(logger, None)
 filter = filter.Filter(conf.filter_kw, conf.filter_dir, logger)
-unzipper = Unzipper(SevenZDriver(), logger)
+renamer = dlrenamer.ez_client.ez_client()
+progress_ui = "not initialized"
 already_add = []
 timelines = []
 done = []
 
 
+def Log_AOP(func):
+    def wrapper(timeline):
+        input = timeline.get_current_path()
+        output = func(timeline)
+        fname = timeline.get_current_record().ops
+        logger.info(' [{}]：  [{}] -> [{}]'.format(fname, input, output))
+        return output
+    return wrapper
+
+
+def Timeline_AOP(func):
+    def wrapper(timeline):
+        input = timeline.get_current_record().output_file
+        output_path = func(timeline)
+        if not output_path:
+            # 如果返回None，则不进行任何操作
+            return
+        ops = func.__name__
+        if ops == 'pre_filter':
+            record = Record(input, ops, output_path)
+        else:
+            record = Record(input, ops, Archive(output_path))
+        timeline.add_record(record)
+        return output_path
+
+    return wrapper
+
+
+
+
+
+# loop of unzip
+# progress:
+# 0.find_zip
+# 0.1.pre_filter
+# 0.2.unzip
+# 0.3.unnest
+# 1.insert_RJ
+# 2.post_filter
+# 3.rename
+
+
+def unzip_loop():
+    for index, timeline in enumerate(timelines):
+        ops = timeline.records[-1].ops
+        if not ops == 'find_zip':
+            continue
+        # pre filter
+        pre_filter(timeline)
+        # unzip
+        output_path = unzip(timeline)
+        if not output_path:
+            continue
+        # unnest
+        new_path = unnest(timeline)
+        # find_zip
+        zip_list = []
+        unzipper.find_zip(new_path, password.get_str_passwords(passwords), conf.del_after_reunzip, already_add,
+                          zip_list)
+        if len(zip_list) > 0:
+            new_archive = timeline.get_current_record().output_file
+            if len(zip_list) == 1:
+                timeline.add_record(Record(new_archive, 'find_zip', zip_list[0]))
+            else:
+                done.append(timeline)
+                timelines.pop(index)
+                for find in zip_list:
+                    t = Timeline(new_archive, 'find_zip', find)
+                    timelines.append(t)
+        progress_ui.add2lis(timelines)
+        # loop
+        if len(zip_list) > 0:
+            unzip_loop()
+
+        password.write_password(password.sort_passwords(passwords, -0.1))
+
+
+@Timeline_AOP
+def pre_filter(timeline:Timeline):
+    zip: zip.Zip = timeline.get_current_record().output_file
+    newzip = copy.deepcopy(zip)
+    file_list = filter.pre_filter(zip.file_list)
+    if file_list:
+        newzip.file_list = file_list
+        return newzip
+    else:
+        return None
+
+
+@Timeline_AOP
+def unzip(timeline: Timeline):
+    zip: zip.Zip = timeline.get_current_record().output_file
+    if conf.output_path not in zip.path:
+        output_path = os.path.join(conf.output_path, zip.filename)
+    else:
+        output_path = os.path.join(zip.father, zip.filename)
+        if os.path.exists(output_path):
+            output_path = os.path.join(zip.father, "prekikoeru")
+            output_path = os.path.join(output_path, zip.filename)
+            # 文件路径
+    if not unzipper.unzip(zip, output_path, conf.max_thread):
+        return
+    password.hit_password(passwords, zip.pw_list[0])
+    # delete_after_unzip or delete_after_reunzip
+    if zip.del_after_unzip:
+        for volume in zip.volumes:
+            delete_file(volume)
+    return output_path
+
+
+def insert_rj_loop():
+    for timeline in timelines:
+        insert_RJ(timeline)
+        progress_ui.add2lis(timelines)
+
+
 #  套娃文件夹
-def unnest(path):
-    # path = timeline.get_current_record().output_file.path
+@Log_AOP
+@Timeline_AOP
+def unnest(timeline:Timeline):
+    path = timeline.get_current_path()
     # 向前找到最外层文件夹，直至OUTPUT
     rel = os.path.relpath(path, conf.output_path)
     rel_path = rel.split('\\')
@@ -38,7 +158,7 @@ def unnest(path):
     rel = os.path.relpath(last, conf.output_path)
     rel_path = rel.split('\\')
     # 若最后一个文件夹名不包含Rj，则从相对路径中或RJ参数中补充Rj
-    new_path = None
+    new_path = path
     if len(rel_path) > 1:
         try:
             shutil.move(last, conf.output_path)
@@ -55,20 +175,22 @@ def unnest(path):
         # timeline.add_record(timeline.get_current_record().output_file, conf.already_add, 1)
         # new_archive = Archive(new_path)
         # timeline.get_current_record().output_file = new_archive
-        logger.info(' 移除套娃文件夹： [{}] -> [{}]'.format(last, new_path))
-    return new_path if new_path else path
+        # logger.info(' 移除套娃文件夹： [{}] -> [{}]'.format(last, new_path))
+    return new_path
 
-
+@Log_AOP
+@Timeline_AOP
 def insert_RJ(timeline: Timeline):
+    pattern = r'[RBV]J(\d{6}|\d{8})(?!\d+)'
     file_name = timeline.get_current_record().output_file.name
-    if not re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(file_name.upper()):
+    if not re.compile(pattern).search(file_name.upper()):
         archives = timeline.get_all_input_archives()
         archives.extend(timeline.get_all_output_archives())
         for archive in archives:
             try:
                 rj = archive.RJ_code
             except AttributeError:
-                rj = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(archive.name.upper())
+                rj = re.compile(pattern).search(archive.name.upper())
                 rj = None if not rj else rj.group()
             if rj:
                 break
@@ -78,103 +200,28 @@ def insert_RJ(timeline: Timeline):
         old_path = timeline.get_current_path()
         new_path = old_path + '-' + rj
         os.rename(old_path, new_path)
-
-        new_archive = Archive(new_path)
-        timeline.add_record(Record(Archive(timeline.get_current_path()), 'insert_RJ', new_archive))
-        logger.info(' 文件夹重命名插入RJ：  [{}] -> [{}]'.format(old_path, new_path))
-
-
-# loop of unzip
-# progress:
-# 0.find_zip
-# 0.1.pre_filter
-# 0.2.unzip
-# 0.3.unnest
-# 1.insert_RJ
-# 2.post_filter
-# 3.rename
+        return new_path
+        # new_archive = Archive(new_path)
+        # timeline.add_record(Record(Archive(timeline.get_current_path()), 'insert_RJ', new_archive))
+        # logger.info(' 文件夹重命名插入RJ：  [{}] -> [{}]'.format(old_path, new_path))
 
 
-def unzip_loop(progress_ui):
-    for index, timeline in enumerate(timelines):
-        ops = timeline.records[-1].ops
-        if not ops == 'find_zip':
-            continue
-        zip: zip.Zip = timeline.get_current_record().output_file
-        # pre filter
-        newzip = copy.deepcopy(zip)
-        newzip.file_list = filter.pre_filter(zip.file_list)
-        timeline.add_record(Record(zip, 'pre_filter', newzip))
-        # unzip
-        if conf.output_path not in newzip.path:
-            output_path = os.path.join(conf.output_path, newzip.filename)
-        else:
-            output_path = os.path.join(newzip.father, newzip.filename)
-            if os.path.exists(output_path):
-                output_path = os.path.join(newzip.father, "prekikoeru")
-                output_path = os.path.join(output_path, newzip.filename)
-                # 文件路径
-        if not unzipper.unzip(newzip, output_path, conf.max_thread, progress_ui):
-            continue
-        password.hit_password(passwords, newzip.pw_list[0])
-
-        output = Archive(output_path)
-        timeline.add_record(Record(newzip, 'unzip', output))
-        # delete_after_unzip or delete_after_reunzip
-        if zip.del_after_unzip:
-            for volume in zip.volumes:
-                delete_file(volume)
-        # unnest
-        new_path = unnest(timeline.get_current_path())
-        new_archive = Archive(new_path)
-        timeline.add_record(Record(output, 'unnest', new_archive))
-        # find_zip
-        zip_list = []
-        unzipper.find_zip(new_path, password.get_str_passwords(passwords), conf.del_after_reunzip, already_add, zip_list)
-        if len(zip_list) > 0:
-            if len(zip_list) == 1:
-                timeline.add_record(Record(new_archive, 'find_zip', zip_list[0]))
-            else:
-                done.append(timeline)
-                timelines.pop(index)
-                for find in zip_list:
-                    t = Timeline(new_archive, 'find_zip', find)
-                    timelines.append(t)
-        progress_ui.add2lis(timelines)
-        # loop
-        if len(zip_list) > 0:
-            unzip_loop(progress_ui)
-        
-        password.write_password(password.sort_passwords(passwords, -0.1))
-
-
-def insert_rj_loop(progress_ui):
+def filter_loop():
     for timeline in timelines:
-        insert_RJ(timeline)
+        post_filter(timeline)
         progress_ui.add2lis(timelines)
 
 
-def filter_loop(progress_ui):
+@Timeline_AOP
+def post_filter(timeline: Timeline):
+    input = timeline.get_current_path()
+    hit = filter.post_filter(input)
+    return input if hit else None
+
+
+def rename_loop():
     for timeline in timelines:
-        input = timeline.get_current_record().output_file
-        filter.post_filter(input.path)
-        timeline.add_record(Record(input, 'post_filter', Archive(input.path)))
-
-        progress_ui.add2lis(timelines)
-
-
-def rename_loop(progress_ui):
-    path_list = []
-    # 走到这里时的路径可能是子文件夹，从子文件夹到输出路径中取出最外层文件夹
-    for timeline in timelines:
-        path = timeline.get_current_path()
-        rel = os.path.relpath(path, conf.output_path)
-        father = os.path.join(conf.output_path, rel.split('\\')[0])
-        path_list.append(father)
-    output_list = dlrenamer.ez_client.run_renamer(path_list)
-    if output_list and len(output_list) > 0 and len(output_list) == len(timelines):
-        for i in range(len(output_list)):
-            timelines[i].add_record(Record(Archive(path_list[i]), 'rename', Archive(output_list[i])))
+        rename(timeline)
     progress_ui.add2lis(timelines)
     for t in done:
         logger.info(t)
@@ -182,11 +229,22 @@ def rename_loop(progress_ui):
         logger.info(t)
 
 
-def create_timeline(files, in_progress, progress_ui):
+@Timeline_AOP
+def rename(timeline: Timeline):
+    path = timeline.get_current_path()
+    # 走到这里时的路径可能是子文件夹，从子文件夹到输出路径中取出最外层文件夹
+    rel = os.path.relpath(path, conf.output_path)
+    father = os.path.join(conf.output_path, rel.split('\\')[0])
+    new_path = renamer.run_renamer(father)
+    return new_path
+
+
+def create_timeline(files, in_progress, progres_ui=progress_ui):
     if in_progress == 0:
         for file in files:
             zip_list = []
-            if unzipper.find_zip(file, password.get_str_passwords(passwords), conf.del_after_unzip, already_add, zip_list):
+            if unzipper.find_zip(file, password.get_str_passwords(passwords), conf.del_after_unzip, already_add,
+                                 zip_list):
                 for zip in zip_list:
                     timeline = Timeline(Archive(file), 'find_zip', zip)
                     timelines.append(timeline)
@@ -210,15 +268,15 @@ def create_timeline(files, in_progress, progress_ui):
     progress_ui.add2lis(timelines)
 
 
-def timelines_runner(task_list: list, progress_ui):
-    for task in task_list:
-        if task == 'unzip':
-            for timeline in timelines:
-                record = timeline.get_current_record
-                if record.ops == 'unzip':
-                    unzip_loop(timeline, progress_ui)
-
-    pass
+# def timelines_runner(task_list: list, progress_ui):
+#     for task in task_list:
+#         if task == 'unzip':
+#             for timeline in timelines:
+#                 record = timeline.get_current_record
+#                 if record.ops == 'unzip':
+#                     unzip_loop(timeline, progress_ui)
+#
+#     pass
 
 
 def delete_file(file_path):  # 删除方法，若配置逻辑删除则丢进回收文件夹
@@ -251,4 +309,3 @@ def reload():
     conf = config.Config()
     global passwords
     passwords = password.read_password()
-
