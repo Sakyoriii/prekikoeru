@@ -12,7 +12,7 @@ import pk_logger
 
 from file_ops import mk_if_not_exit, logger
 
-from timeline import Timeline, Archive, Record
+from timeline import Timeline, Archive, Record, extend
 from unzipper import Unzipper
 
 logger = pk_logger.Pk_logger('task_runner', 'log.txt').add_log_handler().get_logger()
@@ -34,6 +34,7 @@ def Log_AOP(func):
         fname = timeline.get_current_record().ops
         logger.info(' [{}]：  [{}] -> [{}]'.format(fname, input, output))
         return output
+
     return wrapper
 
 
@@ -46,16 +47,15 @@ def Timeline_AOP(func):
             return
         ops = func.__name__
         if ops == 'pre_filter':
-            record = Record(input, ops, output_path)
+            output = output_path
         else:
-            record = Record(input, ops, Archive(output_path))
+            output = Archive(output_path)
+        extend(output, input)
+        record = Record(input, ops, output)
         timeline.add_record(record)
         return output_path
 
     return wrapper
-
-
-
 
 
 # loop of unzip
@@ -84,16 +84,25 @@ def unzip_loop():
         new_path = unnest(timeline)
         # find_zip
         zip_list = []
+        blacklist = conf.blacklist
+
         unzipper.find_zip(new_path, password.get_str_passwords(passwords), conf.del_after_reunzip, already_add,
                           zip_list)
+        for i, find in enumerate(zip_list):
+            for item in blacklist:
+                if find.name.endswith(item):
+                    zip_list.pop(i)
+
         if len(zip_list) > 0:
             new_archive = timeline.get_current_record().output_file
             if len(zip_list) == 1:
+                extend(zip_list[0], new_archive)
                 timeline.add_record(Record(new_archive, 'find_zip', zip_list[0]))
             else:
                 done.append(timeline)
                 timelines.pop(index)
                 for find in zip_list:
+                    extend(find, new_archive)
                     t = Timeline(new_archive, 'find_zip', find)
                     timelines.append(t)
         progress_ui.add2lis(timelines)
@@ -101,11 +110,11 @@ def unzip_loop():
         if len(zip_list) > 0:
             unzip_loop()
 
-        password.write_password(password.sort_passwords(passwords, -0.1))
+        password.write_password(password.sort_passwords(passwords, 0.5))
 
 
 @Timeline_AOP
-def pre_filter(timeline:Timeline):
+def pre_filter(timeline: Timeline):
     zip: zip.Zip = timeline.get_current_record().output_file
     newzip = copy.deepcopy(zip)
     file_list = filter.pre_filter(zip.file_list)
@@ -127,6 +136,8 @@ def unzip(timeline: Timeline):
             output_path = os.path.join(zip.father, "prekikoeru")
             output_path = os.path.join(output_path, zip.filename)
             # 文件路径
+    if zip.RJ_code and zip.RJ_code not in zip.path:
+        output_path += zip.RJ_code
     if not unzipper.unzip(zip, output_path, conf.max_thread):
         return
     password.hit_password(passwords, zip.pw_list[0])
@@ -146,7 +157,7 @@ def insert_rj_loop():
 #  套娃文件夹
 @Log_AOP
 @Timeline_AOP
-def unnest(timeline:Timeline):
+def unnest(timeline: Timeline):
     path = timeline.get_current_path()
     # 向前找到最外层文件夹，直至OUTPUT
     rel = os.path.relpath(path, conf.output_path)
@@ -158,31 +169,42 @@ def unnest(timeline:Timeline):
     rel = os.path.relpath(last, conf.output_path)
     rel_path = rel.split('\\')
     # 若最后一个文件夹名不包含Rj，则从相对路径中或RJ参数中补充Rj
-    new_path = path
+    # new_path = path
     if len(rel_path) > 1:
         try:
-            shutil.move(last, conf.output_path)
+            for item in os.listdir(last):
+                src_path = os.path.join(last, item)
+                dest_path = os.path.join(first, item)
+
+                # 移动文件和文件夹
+                shutil.move(src_path, dest_path)
+                # shutil.move(last, conf.output_path)
+
         except shutil.Error as err:
             logger.error(err)
-            os.rename(last, last + '(1)')  # 小而美的防重方案
-            last += '(1)'
-            shutil.move(last, conf.output_path)
+            # os.rename(last, last + '(1)')  # 小而美的防重方案
+            # last += '(1)'
+            # shutil.move(last, conf.output_path)
 
-        dest = os.path.join(conf.output_path, rel.split('\\')[0])
-        shutil.rmtree(dest)
-        basename = last.split('\\')[-1]
-        new_path = os.path.join(conf.output_path, basename)
+        # dest = os.path.join(conf.output_path, rel.split('\\')[0])
+        try:
+            os.rmdir(last)
+        except Exception as ex:
+            print("错误信息：" + str(ex))  # 提示：错误信息，目录不是空的
+        # basename = last.split('\\')[-1]
+        # new_path = os.path.join(conf.output_path, basename)
         # timeline.add_record(timeline.get_current_record().output_file, conf.already_add, 1)
         # new_archive = Archive(new_path)
         # timeline.get_current_record().output_file = new_archive
         # logger.info(' 移除套娃文件夹： [{}] -> [{}]'.format(last, new_path))
-    return new_path
+    return first
+
 
 @Log_AOP
 @Timeline_AOP
 def insert_RJ(timeline: Timeline):
     pattern = r'[RBV]J(\d{6}|\d{8})(?!\d+)'
-    file_name = timeline.get_current_record().output_file.name
+    file_name = timeline.get_current_record().output_file.path
     if not re.compile(pattern).search(file_name.upper()):
         archives = timeline.get_all_input_archives()
         archives.extend(timeline.get_all_output_archives())

@@ -2,7 +2,7 @@ import os
 import queue
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, simpledialog
 
 import windnd
 
@@ -30,6 +30,7 @@ class Console(tk.Frame):
         self.meun1 = tk.StringVar()
         self.meun1.set('')
         self.listbot1 = tk.Listbox(self, listvariable=self.meun1)
+        self.listbot1.bind("<Double-1>", self.note)
 
         self.labelframe = tk.LabelFrame(self, text='任务', padx=18)
         self.labelframe2 = tk.LabelFrame(self, text='log')
@@ -77,6 +78,19 @@ class Console(tk.Frame):
 
         self.pack(fill=tk.BOTH, expand=True)
 
+    def note(self, event):
+        index = self.listbot1.curselection()
+        if index:
+            i = index[0]
+            new_text = simpledialog.askstring("备注", "备注RJ/密码")
+            if new_text:
+                # # 获取当前项的文本
+                # current_text = self.listbot1.get(index)
+                # # 更新项的文本
+                # self.listbot1.delete(index)
+                # self.listbot1.insert(index, current_text + new_text)
+                task_runner.timelines[i].get_current_record().output_file.set_note(new_text)
+
     def write(self, info):
         # info信息即标准输出sys.stdout和sys.stderr接收到的输出信息
         self.text.insert('end', info)  # 在多行文本控件最后一行插入print信息
@@ -120,7 +134,6 @@ class Console(tk.Frame):
         static_task_list = ['unzip', 'insert_rj', 'filter', 'rename']
         index = static_task_list.index(process)
         exec(f'task_runner.{process}_loop()')
-
 
         # if process == 'unzip':
         #     task_runner.unzip_loop(self)

@@ -1,9 +1,10 @@
 import os
+import re
 from datetime import datetime
 
 
 class Archive:
-    def __init__(self, file):
+    def __init__(self, file, note: str = None):
         self.path = file
         self.father, self.name = os.path.split(file)  # 所在文件夹,文件名
         self.filename, self.extension = os.path.splitext(self.name)  # 文件名，文件扩展名
@@ -14,9 +15,30 @@ class Archive:
                 for item in files:
                     tmp_list.append(os.path.join(root, item))
             self.file_list = tmp_list
+        self.RJ_code = None
+        # 匹配文件名或备注中Rj号，插入密码表
+        self.getRJ(self.name)
+        self.note = None
 
     def __str__(self):
         return self.path
+
+    def getRJ(self, string: str):
+        RJ = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(string.upper())
+        if RJ:
+            self.RJ_code = RJ.group()
+
+    def set_note(self, note):
+        self.note = note
+        self.getRJ(note)
+        print(self.name + " set note : " + note)
+
+
+def extend(new: Archive, old: Archive):
+    if old.RJ_code:
+        new.RJ_code = old.RJ_code
+    if old.note:
+        new.set_note(old.note)
 
 
 class Record:

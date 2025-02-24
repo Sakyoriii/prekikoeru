@@ -102,7 +102,7 @@ class SevenZDriver:
                     if not self.jap and file_ops.encode_detect(file):
                         raise JapDecodeError(f'文件名乱码:{file}')
                     if file not in namelist:
-                        file = re.sub(r'[〜？！_]', "?", file)
+                        file = re.sub(r'[〜？！_ ′]', "?", file)
                         file = file.replace(u'\u3000', "?").replace(u'\xa0', "?")
                         namelist.append(file)
                 elif 'Type = 7z' in line:
