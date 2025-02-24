@@ -188,10 +188,17 @@ def unnest(timeline: Timeline):
 
         # dest = os.path.join(conf.output_path, rel.split('\\')[0])
         try:
-            os.rmdir(last)
+            second = os.path.join(first, rel_path[1])
+            for _, dirs, files in os.walk(second):
+                if len(files) > 0:
+                    logger.error("目录不是空的")
+                else:
+                    shutil.rmtree(second)
+                break
+
         except Exception as ex:
-            print("错误信息：" + str(ex))  # 提示：错误信息，目录不是空的
-        # basename = last.split('\\')[-1]
+            logger.error(str(ex))
+            # basename = last.split('\\')[-1]
         # new_path = os.path.join(conf.output_path, basename)
         # timeline.add_record(timeline.get_current_record().output_file, conf.already_add, 1)
         # new_archive = Archive(new_path)
