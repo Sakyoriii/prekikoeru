@@ -8,7 +8,9 @@
 - 解压出来的压缩包自动继续解压（嵌套/套娃压缩文件）
 - 解压的套娃压缩包可能会造成文件夹嵌套，所以文件夹也解套
 - 根据正则匹配文件名方式过滤文件（解压前过滤解压文件list、解压后过滤输出文件）
-- 根据JR号爬dlsite元数据重命名照搬[大佬的dlrename项目](https://github.com/yodhcn/dlsite-doujin-renamer)，魔改了使用指定翻译版本的元数据或RJ号重命名功能
+- 根据JR号爬dlsite元数据重命名照搬[大佬的dlrename项目](https://github.com/yodhcn/dlsite-doujin-renamer)
+- 魔改了使用指定翻译版本的元数据或RJ号重命名功能
+- 去除含有促销内容的方括号
 
 此工具有关压缩文件的操作几乎都依赖于[7zi](https://www.7-zip.org/)命令行实现，由于未实现设定7zip路径功能，请务必正确安装7zip并[配置好相关环境变量](https://www.google.com/search?q=7zip%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F&oq=7zip%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F)后使用
 
