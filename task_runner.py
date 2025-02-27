@@ -262,8 +262,12 @@ def rename_loop():
 def rename(timeline: Timeline):
     path = timeline.get_current_path()
     # 走到这里时的路径可能是子文件夹，从子文件夹到输出路径中取出最外层文件夹
-    rel = os.path.relpath(path, conf.output_path)
-    father = os.path.join(conf.output_path, rel.split('\\')[0])
+    try:
+        rel = os.path.relpath(path, conf.output_path)
+        father = os.path.join(conf.output_path, rel.split('\\')[0])
+    except ValueError as err:
+        print(err)
+        father = path
     new_path = renamer.run_renamer(father)
     return new_path
 

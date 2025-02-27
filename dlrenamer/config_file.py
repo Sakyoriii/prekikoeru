@@ -55,6 +55,10 @@ class ConfigFile(object):
         'cv_list_right': ")",
         'renamer_tags_max_number': 5,  # 标签个数上限
         'renamer_tags_ordered_list': ["标签1", ["标签2", "替换2"], "标签3"],  # 标签顺序列表，每一项可为字符串或[原标签,替换名]
+        'renamer_title_language_order': ["Simplified_Chinese", "Traditional_Chinese", "Japanese"],  #
+        # 标题语言优先级，有翻译版本优先使用翻译版本标题
+        'renamer_rjcode_language_order': ["Japanese", "Simplified_Chinese", "Traditional_Chinese", ]  #
+        # RJ号优先级，优先使用日文版本RJ号
     }
 
     def __init__(self, file_path: str):
@@ -112,6 +116,8 @@ class ConfigFile(object):
         renamer_delimiter = config_dict.get('renamer_delimiter', None)
         cv_list_left = config_dict.get('cv_list_left', None)
         cv_list_right = config_dict.get('cv_list_right', None)
+        renamer_title_language_order = config_dict.get('renamer_title_language_order', None)
+        renamer_rjcode_language_order = config_dict.get('renamer_rjcode_language_order', None)
 
         strerror_list = []
 
@@ -212,4 +218,27 @@ class ConfigFile(object):
                 if i in r'\/:*?"<>|':
                     strerror_list.append(f'cv_list_right 不能含有系统保留字【{i}】')
 
+        # 检查 renamer_title_language_order
+        if not isinstance(renamer_title_language_order, list):
+            if renamer_title_language_order is not None:
+                strerror_list.append('renamer_title_language_order '
+                                     '应是一个列表，其中每个元素是"Japanese"，"Simplified_Chinese"或"Traditional_Chinese"')
+        else:
+            for i in renamer_title_language_order:
+                if i not in {"Japanese", "Simplified_Chinese", "Traditional_Chinese"}:
+                    strerror_list.append(
+                        'renamer_title_language_order '
+                        f'应是一个列表，其中每个元素是"Japanese"，"Simplified_Chinese"或"Traditional_Chinese"中的一个而不是【{i}】')
+
+        # 检查 renamer_rjcode_language_order
+        if not isinstance(renamer_rjcode_language_order, list):
+            if renamer_rjcode_language_order is not None:
+                strerror_list.append('renamer_rjcode_language_order '
+                                     '应是一个列表，其中每个元素是"Japanese"，"Simplified_Chinese"或"Traditional_Chinese"')
+        else:
+            for i in renamer_rjcode_language_order:
+                if i not in set(["Japanese", "Simplified_Chinese", "Traditional_Chinese"]):
+                    strerror_list.append(
+                        'renamer_rjcode_language_order '
+                        f'应是一个列表，其中每个元素是"Japanese"，"Simplified_Chinese"或"Traditional_Chinese"中的一个而不是【{i}】')
         return strerror_list

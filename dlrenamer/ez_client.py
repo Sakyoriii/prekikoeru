@@ -1,7 +1,6 @@
 import sys
 import os
 
-
 import yaml
 
 from .config_file import ConfigFile
@@ -9,17 +8,18 @@ from .renamer import Renamer
 from scaner import Scaner
 from scraper import Locale, CachedScraper
 
-path = 'C:\\Users\\75219\\Desktop\\新建文件夹\\dir\\RJ250978'
-config_file_path = os.path.join('..\config.yaml')
+# path = 'C:\\Users\\75219\\Desktop\\新建文件夹\\dir\\RJ250978'
+config_file_path = os.path.join('.\config.yaml')
+
 
 class ez_client:
     def __init__(self):
-        self.path=path
+        # self.path = path
         self.config_file_path = config_file_path
         try:
             config = ConfigFile(config_file_path).load_config()  # 从配置文件中读取配置
         except yaml.YAMLError as err:
-        # except JSONDecodeError as err:
+            # except JSONDecodeError as err:
             # self.__print_error(f'配置文件解析失败："{os.path.normpath(self.__config_file.file_path)}"')
             # self.__print_error(f'JSONDecodeError: {str(err)}')
             # self.__before_worker_thread_end()
@@ -36,7 +36,7 @@ class ez_client:
         strerror_list = ConfigFile.verify_config(config)
         if len(strerror_list) > 0:
             # self.__print_error(f'配置文件验证失败："{os.path.normpath(self.__config_file.file_path)}"')
-            print(f'配置文件验证失败："{os.path.normpath(path)}"')
+            print(f'配置文件验证失败："{os.path.normpath(config_file_path)}"')
             for strerror in strerror_list:
                 # self.__print_error(strerror)
                 print(strerror)
@@ -84,10 +84,12 @@ class ez_client:
             renamer_illegal_character_to_full_width_flag=config['renamer_illegal_character_to_full_width_flag'],
             make_folder_icon=config['make_folder_icon'],
             remove_jpg_file=config['remove_jpg_file'],
-            tags_option=tags_option)
+            tags_option=tags_option,
+            title_language_order=config['renamer_title_language_order'],
+            rjcode_language_order=config['renamer_rjcode_language_order']
+        )
 
-
-    def run_renamer(self,path):
+    def run_renamer(self, path):
         # self.__before_worker_thread_start()
 
         # 执行重命名

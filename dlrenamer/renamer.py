@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from datetime import datetime
 
+import requests
 from requests.exceptions import RequestException, ConnectionError, HTTPError, Timeout
 
 import pk_logger
@@ -13,6 +14,7 @@ from scraper import WorkMetadata, Scraper
 import stat
 
 import win32api
+
 # Windows 系统的保留字符
 # https://docs.microsoft.com/zh-cn/windows/win32/fileio/naming-a-file
 # <（小于）
@@ -60,14 +62,16 @@ class Renamer(object):
             # https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
             release_date_format: str = '%y%m%d',  # 日期格式
             delimiter: str = ' ',  # 列表转字符串的分隔符
-            cv_list_left: str = ' ', # CV列表的左侧分隔符
-            cv_list_right: str = ' ', # CV列表的右侧分隔符
+            cv_list_left: str = ' ',  # CV列表的左侧分隔符
+            cv_list_right: str = ' ',  # CV列表的右侧分隔符
             exclude_square_brackets_in_work_name_flag: bool = False,  # 设为 True 时，移除 work_name 中【】及其间的内容
             renamer_illegal_character_to_full_width_flag: bool = False,  # 设为 True 时，新文件名将非法字符转为全角；为 False 时直接移除.
-            make_folder_icon: bool = True, # 设为 True 时，将会下载作品封面并将其设为文件夹封面
-            remove_jpg_file: bool = True, # 设为 True 时，将会保留下载的作品封面
+            make_folder_icon: bool = True,  # 设为 True 时，将会下载作品封面并将其设为文件夹封面
+            remove_jpg_file: bool = True,  # 设为 True 时，将会保留下载的作品封面
             tags_option: dict = None,  # 标签相关设置
-    ):
+            rjcode_language_order=None,  # rj号 语言版本优先顺序
+            title_language_order=None):  # 标题 语言版本优先顺序
+
         if 'rjcode' not in template:
             raise ValueError  # 重命名不能丢失 rjcode
         self.__scaner = scaner
@@ -82,6 +86,8 @@ class Renamer(object):
         self.__make_folder_icon = make_folder_icon
         self.__remove_jpg_file = remove_jpg_file
         self.__tags_option = tags_option
+        self.__rjcode_language_order = rjcode_language_order
+        self.__title_language_order = title_language_order
 
     def __compile_new_name(self, metadata: WorkMetadata):
         """
@@ -101,7 +107,8 @@ class Renamer(object):
             new_name = new_name.replace('release_date', release_date_obj.strftime(self.__release_date_format))
 
         cv_list = metadata['cvs']  # cv列表
-        cv_list_str = self.__cv_list_left + self.__delimiter.join(cv_list) + self.__cv_list_right if len(cv_list) > 0 else ''
+        cv_list_str = self.__cv_list_left + self.__delimiter.join(cv_list) + self.__cv_list_right if len(
+            cv_list) > 0 else ''
         new_name = new_name.replace('cv_list_str', cv_list_str)
 
         if "tags_list_str" in self.__template:  # 标签列表
@@ -140,20 +147,114 @@ class Renamer(object):
             Renamer.logger.warning(f'[{rjcode}] -> {task}失败[ConnectionError]：{str(err)}\n')
         elif isinstance(err, HTTPError):
             # HTTP 请求返回了不成功的状态码
-            Renamer.logger.warning(f'[{rjcode}] -> {task}失败[HTTPError]：{err.response.status_code} {err.response.reason}\n')
+            Renamer.logger.warning(
+                f'[{rjcode}] -> {task}失败[HTTPError]：{err.response.status_code} {err.response.reason}\n')
         elif isinstance(err, RequestException):
             # requests 引发的其它异常
             Renamer.logger.error(f'[{rjcode}] -> {task}失败[RequestException]：{str(err)}\n')
+
+    @staticmethod
+    def getLanguageEdition(rj_code: str):
+        api_url = f"https://www.dlsite.com/maniax/api/=/product.json?workno={rj_code.upper()}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+            "Referer": f"https://www.dlsite.com/maniax/work/=/product_id/{rj_code}.html"
+        }
+
+        try:
+            response = requests.get(api_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+        except Exception as e:
+            return {
+                'Japanese': None,
+                'Simplified_Chinese': None,
+                'Traditional_Chinese': None,
+                'error': f"API请求失败: {str(e)}"
+            }
+
+        # 初始化结果
+        result = {
+            'Japanese': None,
+            'Simplified_Chinese': None,
+            'Traditional_Chinese': None,
+            'error': None
+        }
+
+        if not isinstance(data, list) or len(data) == 0:
+            return {**result, 'error': "无效的RJ号或数据格式异常"}
+
+        main_work = data[0]
+
+        # 解析多语言版本信息
+        if 'language_editions' in main_work:
+            current_workno = main_work['workno']
+            editions = main_work['language_editions']
+
+            # 创建版本映射表
+            lang_map = {
+                'JPN': 'Japanese',
+                'CHI_HANS': 'Simplified_Chinese',
+                'CHI_HANT': 'Traditional_Chinese'
+            }
+
+            # 构建完整的版本列表（包含自身）
+            all_editions = [ed for ed in editions if ed['workno'] == current_workno] + editions
+
+            # 去重处理
+            seen = set()
+            unique_editions = []
+            for ed in all_editions:
+                if ed['workno'] not in seen:
+                    seen.add(ed['workno'])
+                    unique_editions.append(ed)
+
+            # 填充结果
+            for edition in unique_editions:
+                lang_code = edition['lang']
+                if lang_code in lang_map:
+                    result[lang_map[lang_code]] = edition['workno']
+
+        # 特殊处理中文版本反向查找日文原版
+        if not result['Japanese'] and any([result['Simplified_Chinese'], result['Traditional_Chinese']]):
+            original_workno = main_work.get('translation_info', {}).get('original_workno')
+            if original_workno:
+                result['Japanese'] = original_workno
+
+        return result
 
     def rename(self, root_path: str):
         work_folders = self.__scaner.scan(root_path)
         for rjcode, folder_path in work_folders:
             Renamer.logger.info(f'[{rjcode}] -> 发现 RJ 文件夹："{os.path.normpath(folder_path)}"')
             dirname, basename = os.path.split(folder_path)
+            # 获取不同语言版本
+            language_edition = Renamer.getLanguageEdition(rjcode)
+            prefer_rj = rjcode
+            prefer_title = rjcode
+            if self.__rjcode_language_order:
+                for key in self.__rjcode_language_order:
+                    rj = language_edition.get(key)
+                    if rj is not None:
+                        prefer_rj = rj
+                        break
+                else:
+                    Renamer.logger.error(f'[{rjcode}] -> ：{str(language_edition.get("error"))}\n')
+
+            if self.__title_language_order:
+                for key in self.__title_language_order:
+                    rj = language_edition.get(key)
+                    if rj is not None:
+                        prefer_title = rj
+                        break
+                else:
+                    Renamer.logger.error(f'[{rjcode}] -> ：{str(language_edition.get("error"))}\n')
+
 
             # 爬取元数据
             try:
-                metadata = self.__scraper.scrape_metadata(rjcode)
+                metadata = self.__scraper.scrape_metadata(prefer_title)
+                metadata['rjcode'] = prefer_rj
             except RequestException as err:
                 Renamer.__handle_request_exception(rjcode, '爬取元数据', err)  # 爬取元数据失败
                 continue
@@ -179,13 +280,15 @@ class Renamer(object):
             except FileExistsError as err:
                 filename = os.path.normpath(err.filename)
                 filename2 = os.path.normpath(err.filename2)
-                Renamer.logger.warning(f'[{rjcode}] -> 重命名失败[FileExistsError]：{err.strerror}："{filename}" -> "{filename2}"\n')
-                return 
+                Renamer.logger.warning(
+                    f'[{rjcode}] -> 重命名失败[FileExistsError]：{err.strerror}："{filename}" -> "{filename2}"\n')
+                return
             except OSError as err:
                 Renamer.logger.error(f'[{rjcode}] -> 重命名失败[OSError]：{str(err)}\n')
-                return 
+                return
 
-    # 修改文件夹封面
+                # 修改文件夹封面
+
     def changeIcon(self, rjcode: str, cover_url: str, icon_dir: str):
         os.chmod(icon_dir, stat.S_IREAD)
         icon_name, jpg_name = self.__scraper.scrape_icon(rjcode, cover_url, icon_dir)
