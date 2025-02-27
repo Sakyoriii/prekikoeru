@@ -93,7 +93,8 @@ class Renamer(object):
         """
         根据作品的元数据编写出新的文件名
         """
-        work_name = re.sub(r'【.*?】', '', metadata['work_name']).strip() \
+        # work_name = re.sub(r'【.*?】', '', metadata['work_name']).strip() \
+        work_name = Renamer.remove_specific_brackets(metadata['work_name'])\
             if self.__exclude_square_brackets_in_work_name_flag \
             else metadata['work_name']
 
@@ -136,6 +137,30 @@ class Renamer(object):
             new_name = WINDOWS_RESERVED_CHARACTER_PATTERN.sub('', new_name)
 
         return new_name.strip()
+
+    @staticmethod
+    def remove_specific_brackets(text):
+        """
+        删除包含语言标识、促销标识和设备标识的【】或[]内容。
+        Args:
+        text (str): 输入的字符串。
+        Returns:
+        str: 删除指定内容后的字符串。
+        """
+
+        # 定义需要删除的语言标识、促销标识和设备标识的正则表达式
+        language_tags = r"繁体中文版|简体中文版|簡体中文版|简中&日文|日文版|中文版|中日英|中日|中文音声|简中字幕版|繁體中文版|中英日"
+        promotion_tags = r".?特価.?|.?限定.?|.?特典.?|.?記念.?|.?割引.?|.?円.?|.?附赠.?|.?附加.?"
+        device_tags = r"KU100ハイレゾ|KU100|ハイレゾ|96kHz/24bitハイレゾ|立体音響|バイノーラル|フォーリーサウンド|KU100バイノーラル|KU100高音質|KU100麦克风收录作品|KU100拟真音效|KU100高音质|KU100高解析度"
+
+        # 合并所有需要删除的标识
+        combined_tags = f"{language_tags}|{promotion_tags}|{device_tags}"
+
+        # 删除包含指定标识的【】或[]内容
+        pattern = rf"(\[({combined_tags})\])|(\【({combined_tags})\】)"
+        text = re.sub(pattern, "", text)
+
+        return text.strip()
 
     @staticmethod
     def __handle_request_exception(rjcode: str, task: str, err: RequestException):
