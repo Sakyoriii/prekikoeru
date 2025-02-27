@@ -94,7 +94,7 @@ class Renamer(object):
         根据作品的元数据编写出新的文件名
         """
         # work_name = re.sub(r'【.*?】', '', metadata['work_name']).strip() \
-        work_name = Renamer.remove_specific_brackets(metadata['work_name'])\
+        work_name = Renamer.remove_specific_brackets(metadata['work_name']) \
             if self.__exclude_square_brackets_in_work_name_flag \
             else metadata['work_name']
 
@@ -275,11 +275,14 @@ class Renamer(object):
                 else:
                     Renamer.logger.error(f'[{rjcode}] -> ：{str(language_edition.get("error"))}\n')
 
-
             # 爬取元数据
             try:
                 metadata = self.__scraper.scrape_metadata(prefer_title)
                 metadata['rjcode'] = prefer_rj
+                # 解决翻译版本社团名为大家翻的问题
+                if language_edition["Japanese"] and prefer_title is not language_edition["Japanese"]:
+                    jap_metadata = self.__scraper.scrape_metadata(language_edition["Japanese"])
+                    metadata['maker_name'] = jap_metadata['maker_name']
             except RequestException as err:
                 Renamer.__handle_request_exception(rjcode, '爬取元数据', err)  # 爬取元数据失败
                 continue
