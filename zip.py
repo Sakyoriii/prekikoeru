@@ -25,7 +25,9 @@ class Zip(Archive):
             self.pw_list.insert(0, self.RJ_code)
 
     def set_note(self, note):
+        self.pw_list.insert(0, note)
+        is_rj = self.RJ_code is not None
         super(Zip, self).set_note(note)
-        if self.RJ_code:
+        if not is_rj and self.RJ_code:
             self.pw_list.insert(0, self.RJ_code)
 

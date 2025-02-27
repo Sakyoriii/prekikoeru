@@ -198,13 +198,14 @@ def unnest(timeline: Timeline):
 
         except Exception as ex:
             logger.error(str(ex))
+        return first
             # basename = last.split('\\')[-1]
         # new_path = os.path.join(conf.output_path, basename)
         # timeline.add_record(timeline.get_current_record().output_file, conf.already_add, 1)
         # new_archive = Archive(new_path)
         # timeline.get_current_record().output_file = new_archive
         # logger.info(' 移除套娃文件夹： [{}] -> [{}]'.format(last, new_path))
-    return first
+    return path
 
 
 @Log_AOP
