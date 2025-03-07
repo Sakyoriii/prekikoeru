@@ -192,17 +192,17 @@ class Renamer(object):
             data = response.json()
         except Exception as e:
             return {
-                'Japanese': None,
-                'Simplified_Chinese': None,
-                'Traditional_Chinese': None,
+                'ja_jp': None,
+                'zh_cn': None,
+                'zh_tw': None,
                 'error': f"API请求失败: {str(e)}"
             }
 
         # 初始化结果
         result = {
-            'Japanese': None,
-            'Simplified_Chinese': None,
-            'Traditional_Chinese': None,
+            'ja_jp': None,
+            'zh_cn': None,
+            'zh_tw': None,
             'error': None
         }
 
@@ -218,9 +218,9 @@ class Renamer(object):
 
             # 创建版本映射表
             lang_map = {
-                'JPN': 'Japanese',
-                'CHI_HANS': 'Simplified_Chinese',
-                'CHI_HANT': 'Traditional_Chinese'
+                'JPN': 'ja_jp',
+                'CHI_HANS': 'zh_cn',
+                'CHI_HANT': 'zh_tw'
             }
 
             # 构建完整的版本列表（包含自身）
@@ -241,10 +241,10 @@ class Renamer(object):
                     result[lang_map[lang_code]] = edition['workno']
 
         # 特殊处理中文版本反向查找日文原版
-        if not result['Japanese'] and any([result['Simplified_Chinese'], result['Traditional_Chinese']]):
+        if not result['ja_jp'] and any([result['zh_cn'], result['zh_tw']]):
             original_workno = main_work.get('translation_info', {}).get('original_workno')
             if original_workno:
-                result['Japanese'] = original_workno
+                result['ja_jp'] = original_workno
 
         return result
 
@@ -271,9 +271,7 @@ class Renamer(object):
                     rj = language_edition.get(key)
                     if rj is not None:
                         prefer_title = rj
-                        if key == 'Traditional_Chinese':
-                            self.__scraper.set_url_locate('zh_TW')
-
+                        self.__scraper.set_url_locate(key)
                         break
                 else:
                     Renamer.logger.error(f'[{rjcode}] -> ：{str(language_edition.get("error"))}\n')
@@ -283,8 +281,8 @@ class Renamer(object):
                 metadata = self.__scraper.scrape_metadata(prefer_title)
                 metadata['rjcode'] = prefer_rj
                 # 解决翻译版本社团名为大家翻的问题
-                if language_edition["Japanese"] and prefer_title is not language_edition["Japanese"]:
-                    jap_metadata = self.__scraper.scrape_metadata(language_edition["Japanese"])
+                if language_edition["ja_jp"] and prefer_title is not language_edition["ja_jp"]:
+                    jap_metadata = self.__scraper.scrape_metadata(language_edition["ja_jp"])
                     metadata['maker_name'] = jap_metadata['maker_name']
             except RequestException as err:
                 Renamer.__handle_request_exception(rjcode, '爬取元数据', err)  # 爬取元数据失败

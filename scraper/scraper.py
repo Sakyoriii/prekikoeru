@@ -55,14 +55,11 @@ class Scraper(object):
         return html
 
     def set_url_locate(self, locate):
-        self.__url_locale = locate
+        self.__locale = Locale[locate]
 
     def __request_product_api(self, rjcode: str):
         url = Dlsite.compile_product_api_url(rjcode)
-        if self.__url_locale:
-            params = {'locale': self.__url_locale}
-        else:
-            params = {'locale': self.__locale.name}
+        params = {'locale': self.__locale.name}
         response = requests.get(url,
                                 params,
                                 timeout=(self.__connect_timeout, self.__read_timeout),

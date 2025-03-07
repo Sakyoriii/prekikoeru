@@ -222,23 +222,23 @@ class ConfigFile(object):
         if not isinstance(renamer_title_language_order, list):
             if renamer_title_language_order is not None:
                 strerror_list.append('renamer_title_language_order '
-                                     '应是一个列表，其中每个元素是"Japanese"，"Simplified_Chinese"或"Traditional_Chinese"')
+                                     '应是一个列表，其中每个元素是"ja_jp", "zh_cn", "zh_tw"')
         else:
             for i in renamer_title_language_order:
-                if i not in {"Japanese", "Simplified_Chinese", "Traditional_Chinese"}:
+                if i not in {"ja_jp", "zh_cn", "zh_tw"}:
                     strerror_list.append(
                         'renamer_title_language_order '
-                        f'应是一个列表，其中每个元素是"Japanese"，"Simplified_Chinese"或"Traditional_Chinese"中的一个而不是【{i}】')
+                        f'应是一个列表，其中每个元素是"ja_jp", "zh_cn", "zh_tw"中的一个而不是【{i}】')
 
         # 检查 renamer_rjcode_language_order
         if not isinstance(renamer_rjcode_language_order, list):
             if renamer_rjcode_language_order is not None:
                 strerror_list.append('renamer_rjcode_language_order '
-                                     '应是一个列表，其中每个元素是"Japanese"，"Simplified_Chinese"或"Traditional_Chinese"')
+                                     '应是一个列表，其中每个元素是"ja_jp", "zh_cn", "zh_tw"')
         else:
             for i in renamer_rjcode_language_order:
-                if i not in set(["Japanese", "Simplified_Chinese", "Traditional_Chinese"]):
+                if i not in set(["ja_jp", "zh_cn", "zh_tw"]):
                     strerror_list.append(
                         'renamer_rjcode_language_order '
-                        f'应是一个列表，其中每个元素是"Japanese"，"Simplified_Chinese"或"Traditional_Chinese"中的一个而不是【{i}】')
+                        f'应是一个列表，其中每个元素是"ja_jp", "zh_cn", "zh_tw"中的一个而不是【{i}】')
         return strerror_list
