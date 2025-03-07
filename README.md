@@ -102,13 +102,14 @@ renamer_tags_ordered_list:
     - 替换2
   - 标签3
 renamer_title_language_order:   # 重命名时若发现当前作品有多种语言版本，将按照当前设置优先级选择一个语言版本的元数据对文件夹进行重命名，留空或不存在将使用原始版本（估计没啥人需要英语韩语吧？所以当前只支持日简繁三种版本）
-  - Simplified_Chinese
-  - Traditional_Chinese
-  - Japanese
+  - zh_cn
+  - zh_tw
+  - ja_jp
 renamer_rjcode_language_order:   # 重命名时若发现当前作品有多种语言版本，将按照当前设置优先级选择一个语言版本的RJ号对文件夹进行重命名，留空将使用原始版本
-  - Japanese
-  # - Simplified_Chinese
-  # - Traditional_Chinese
+  - ja_jp
+#  - zh_cn
+#  - zh_tw
+
 
 
 ~~~
