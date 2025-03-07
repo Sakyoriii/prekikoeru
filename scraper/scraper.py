@@ -30,7 +30,8 @@ def _getproxies():
 
 
 class Scraper(object):
-    def __init__(self, locale: Locale, proxies=None, connect_timeout: int = 10, read_timeout: int = 10, sleep_interval=3):
+    def __init__(self, locale: Locale, proxies=None, connect_timeout: int = 10, read_timeout: int = 10,
+                 sleep_interval=3):
         self.__locale = locale
         self.__connect_timeout = connect_timeout
         self.__read_timeout = read_timeout
@@ -39,6 +40,7 @@ class Scraper(object):
             # 获取系统代理
             proxies = _getproxies()
         self.__proxies = proxies
+        self.__url_locale = None
 
     def __request_work_page(self, rjcode: str):
         url = Dlsite.compile_work_page_url(rjcode)
@@ -52,9 +54,15 @@ class Scraper(object):
         time.sleep(self.__sleep_interval)
         return html
 
+    def set_url_locate(self, locate):
+        self.__url_locale = locate
+
     def __request_product_api(self, rjcode: str):
         url = Dlsite.compile_product_api_url(rjcode)
-        params = {'locale': self.__locale.name}
+        if self.__url_locale:
+            params = {'locale': self.__url_locale}
+        else:
+            params = {'locale': self.__locale.name}
         response = requests.get(url,
                                 params,
                                 timeout=(self.__connect_timeout, self.__read_timeout),
@@ -197,7 +205,7 @@ class Scraper(object):
             metadata['age_category'] = 'ADL'
 
         return metadata
-    
+
     # 获取封面图片链接
     @staticmethod
     def __parse_icon(html: str):

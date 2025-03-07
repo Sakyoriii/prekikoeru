@@ -271,6 +271,9 @@ class Renamer(object):
                     rj = language_edition.get(key)
                     if rj is not None:
                         prefer_title = rj
+                        if key == 'Traditional_Chinese':
+                            self.__scraper.set_url_locate('zh_TW')
+
                         break
                 else:
                     Renamer.logger.error(f'[{rjcode}] -> ：{str(language_edition.get("error"))}\n')
