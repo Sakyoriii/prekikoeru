@@ -175,16 +175,18 @@ def unnest(timeline: Timeline):
             for item in os.listdir(last):
                 src_path = os.path.join(last, item)
                 dest_path = os.path.join(first, item)
-
+                while os.path.exists(dest_path):
+                    dest_path += '(1)'
                 # 移动文件和文件夹
                 shutil.move(src_path, dest_path)
                 # shutil.move(last, conf.output_path)
 
         except shutil.Error as err:
             logger.error(err)
-            # os.rename(last, last + '(1)')  # 小而美的防重方案
-            # last += '(1)'
-            # shutil.move(last, conf.output_path)
+
+            # os.rename(src_path, src_path + '(1)')  # 小而美的防重方案
+            # src_path += '(1)'
+            # shutil.move(src_path, dest_path)
 
         # dest = os.path.join(conf.output_path, rel.split('\\')[0])
         try:
