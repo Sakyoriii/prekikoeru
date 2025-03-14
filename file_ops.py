@@ -25,8 +25,9 @@ def is_volume_zip(file_name):  # 判断是否是分卷压缩
         father, name = os.path.split(file_name)
         basename, _ = os.path.splitext(name)
         next_volume = os.path.join(father, basename)
-        next_volume = next_volume + ".z01"
-        return os.path.exists(next_volume)
+        next_volume1 = next_volume + ".z01"
+        next_volume2 = next_volume + ".002"
+        return os.path.exists(next_volume1) or os.path.exists(next_volume2)
 
     return bool(re.search(pattern_7z, file_name)) or bool(re.search(pattern_rar, file_name)) or bool(
         re.search(pattern_zip, file_name))
