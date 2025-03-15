@@ -95,14 +95,15 @@ def unzip_loop():
 
         if len(zip_list) > 0:
             new_archive = timeline.get_current_record().output_file
+
             if len(zip_list) == 1:
-                extend(zip_list[0], new_archive)
+                zip_list[0].extend(new_archive)
                 timeline.add_record(Record(new_archive, 'find_zip', zip_list[0]))
             else:
                 done.append(timeline)
                 timelines.pop(index)
                 for find in zip_list:
-                    extend(find, new_archive)
+                    find.extend(new_archive)
                     t = Timeline(new_archive, 'find_zip', find)
                     timelines.append(t)
         progress_ui.add2lis(timelines)
