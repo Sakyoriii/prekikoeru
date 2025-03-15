@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import re
 
 from multiprocessing import Process
 
@@ -52,6 +53,10 @@ class Unzipper():
         if len(namelist) > 0:
             zip.pw_list = passwords
             namelist = list(set(namelist))
+            if len(namelist) == 1:
+                rj = re.compile(r'[RBV]J(\d{6}|\d{8})(?!\d+)').search(namelist[0].upper())
+                if rj:
+                    passwords.insert(0, rj.group())
             zip.file_list = namelist
             return True
         return False

@@ -1,4 +1,3 @@
-
 import pk_logger
 from timeline import Archive
 
@@ -31,3 +30,9 @@ class Zip(Archive):
         if not is_rj and self.RJ_code:
             self.pw_list.insert(0, self.RJ_code)
 
+    def extend(self, old: Archive):
+        if self.RJ_code is None and old.RJ_code:
+            self.RJ_code = old.RJ_code
+            self.pw_list.insert(0, self.RJ_code)
+        if old.note:
+            self.set_note(old.note)
