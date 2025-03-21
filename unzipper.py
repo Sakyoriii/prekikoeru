@@ -1,4 +1,3 @@
-import logging
 import multiprocessing
 import os
 import re
@@ -7,42 +6,60 @@ from multiprocessing import Process
 
 import file_ops
 from seven_z_driver import SevenZDriver, JapDecodeError, GetNamelistError, NoFile2ProcessError
+from unzip_process_pool import UnzipProcessPool
 
 from zip import Zip
 
 
 class Unzipper():
 
-    def __init__(self, logger, progress_ui):
+    def __init__(self, logger, pool: UnzipProcessPool, seven_z_path=None, progress_ui=None):
         self.logger = logger
         self.progress_ui = progress_ui
+        # if seven_z_path is not None:
+        #     self.seven_z_path = seven_z_path
+        # else:
+        #     self.seven_z_path = r'C:\Program Files\7-Zip\7z.exe'
+
+        self.driver = SevenZDriver(seven_z_path) if seven_z_path else SevenZDriver()
+
+        self.pool = pool
 
     def load_namelist(self, zip: Zip):
         passwords = zip.pw_list
         namelist = []
-        driver = SevenZDriver()
         if not zip.volumes:
             zip.volumes = [zip.path]
         for volume in zip.volumes:
-            driver.set_compress_file(volume)
+            # driver.set_compress_file(volume)
+
             for password in passwords:
-                driver.set_password(password)
-                try:
-                    volume_namelist = driver.get_namelist()
-                except GetNamelistError as err:
-                    if zip.extension in ['.mp4', '.mkv']:
-                        zip.covered = True
-                        driver.set_covered(True)
-                        volume_namelist = driver.get_namelist()
-                    elif 'Wrong password' in err.error_info:
-                        continue
+                # driver.set_password(password)
+                retry = True
+                wrong_password = False
+                volume_namelist = []
+                while retry:
+                    try:
+                        volume_namelist = self.driver.get_namelist(compress_file=volume, password=password, jap=zip.jap,
+                                                                   covered=zip.covered)
+                    except GetNamelistError as err:
+                        if zip.extension in ['.mp4', '.mkv']:
+                            zip.covered = True
+                        elif 'Wrong password' in err.error_info:
+                            wrong_password = True
+                            break
+                        else:
+                            self.logger.error(err.error_info)
+                            retry = False
+                            break
+                    except JapDecodeError:
+                        zip.jap = True
                     else:
-                        self.logger.error(err.error_info)
                         break
-                except JapDecodeError:
-                    zip.jap = True
-                    driver.set_jap(True)
-                    volume_namelist = driver.get_namelist()
+                if wrong_password:
+                    continue
+                if not retry:
+                    break
                 if volume_namelist:
                     namelist.extend(volume_namelist)
                     start_at = passwords.index(password)
@@ -83,7 +100,7 @@ class Unzipper():
                 self.logger.info(f" 文件[' {zip.path} ']解压完成")
             elif size / len(zip.file_list) > 25.6:  # 由于前置过滤的存在，计算并不完全准确
                 self.logger.info(f" 使用多线程解压 [' {zip.path} ']")
-                self.multi_threaded_unzip(zip, output_path, thread_size, self.progress_ui)
+                self.multi_threaded_unzip(zip, output_path)
                 self.logger.info(f" 文件[' {zip.path} ']解压完成")
             else:
                 self.logger.info(f" 小文件较多（{size}MB/{len(zip.file_list)}Files），使用单线程解压 [' {zip.path} ']")
@@ -100,8 +117,9 @@ class Unzipper():
         for password in zip.pw_list:
             index = (index + 1) % thread_size
             if not multi_threading:
-                unzip_thread(zip, first_file, password, output_path, result_list, 0)
-                returncode, msg = result_list[0]
+                # unzip_thread(zip, first_file, password, output_path, result_list, 0)
+                args = [zip.path, output_path, password, first_file, zip.jap, zip.covered]
+                returncode, msg = self.driver.unzip(*args)
                 if returncode == 0:
                     zip.pw_list = [password]
                     return password
@@ -129,68 +147,29 @@ class Unzipper():
             index += 1
         return None
 
-    def multi_threaded_unzip(self, zip: Zip, output_path, thread_size, porgress_ui):
-        index = 0  # 进程索引
-        process = [False] * thread_size
-        result_list = multiprocessing.Manager().list([7] * thread_size)
-        result = 0  # 进程结果
-        progress = 1  # 进度
+    def multi_threaded_unzip(self, zip: Zip, output_path):
         file_list = zip.file_list
         password = zip.pw_list[0]
+        self.pool.set_list_total(zip.name, len(file_list))
         for file in file_list[1:]:
-            porgress_ui.update_progress(progress, len(file_list), '{} : {}'.format(zip.path, file))
-            if len(file_list) == 1:
-                file = None
-
-            # 循环等等空进程
-            while True:
-                # if index == thread_size - 1:
-                #     time.sleep(0.1)
-                try:
-                    p = process[index]
-                except IndexError:
-                    p = False
-
-                if not p or not p.is_alive():
-                    break
-                index = (index + 1) % thread_size
-
-            # 发现空线程，创建任务
-            if p:
-                result, msg = result_list[index]
-                if not result == 0:
-                    print(msg)
-                    break
-
-            p = Process(target=unzip_thread,
-                        args=(zip, file, password, output_path, result_list, index))
-            p.start()
-            process[index] = p
-            progress += 1
+            args = [zip.path, output_path, password, file, zip.jap, zip.covered]
+            self.pool.task_queue.put((zip.name, self.driver.unzip, args, {}))
 
         else:
-            # 等待所有进程结束
+            # 阻塞等待该任务组完成
             print('等待所有解压进程结束...')
-            for p in process:
-                if p:
-                    p.join()
-            # if len(file_list)-1<
-            # for result, msg in result_list:
-            #     if not result == 0:
-            #         self.logger.info(f" 文件[' {zip.path} ']解压失败,{msg}")
-            #     return
-            self.logger.info(
-                f"解压完成： [' {zip.path} '] 使用密码： [' {password} '] ,删除压缩文件：'{zip.del_after_unzip}")
-            porgress_ui.update_progress(progress, len(file_list), '完成')
-
-        if not result == 0:
-            self.logger.info(f" 文件[' {zip.path} ']解压失败,{msg}")
+            event = self.pool.list_events[zip.name]
+            event.wait()
+            status = self.pool.list_status[zip.name]
+            if status['completed']:
+                self.logger.info(
+                    f"解压完成： [' {zip.path} '] 使用密码： [' {password} '] ,删除压缩文件：'{zip.del_after_unzip}")
+            else:
+                self.logger.info(f" 文件[' {zip.path} ']解压失败,{status['error']}")
 
     def single_threaded_unzip(self, zip: Zip, output_path):
-        driver = SevenZDriver().set_compress_file(zip.path).set_output_path(output_path).set_jap(zip.jap).set_covered(
-            zip.covered)
         for password in zip.pw_list:
-            returncode, msg = driver.set_password(password).unzip()
+            returncode, msg = self.driver.unzip(zip.path, output_path, password, None, zip.jap, zip.covered)
             if returncode == 0:
                 self.logger.info(f'[{zip.path}]解压完成')
                 return True
@@ -248,12 +227,6 @@ class Unzipper():
         return False
 
 
-def unzip_thread(zip: Zip, output_file, password, output_path, result_list, index):
-    driver = SevenZDriver().set_compress_file(zip.path).set_output_file(output_file).set_password(
-        password).set_output_path(output_path).set_jap(zip.jap).set_covered(zip.covered)
-    returncode, msg = driver.unzip()
-    # print(msg)
-    # if msg:
-    #     if "No files to process" in msg:
-    #         raise NoFile2ProcessError(msg)
+def unzip_thread(zip: Zip, driver: SevenZDriver, output_file, password, output_path, result_list, index):
+    returncode, msg = driver.unzip(zip.path, output_path, password, output_file, zip.jap, zip.covered)
     result_list[index] = (returncode, msg)

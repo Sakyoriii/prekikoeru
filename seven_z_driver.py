@@ -8,56 +8,34 @@ import file_ops
 class SevenZDriver:
     def __init__(self, location_path=r'C:\Program Files\7-Zip\7z.exe'):
         self.location_path = location_path
-        self.compress_file=None
-        self.output_file=None
-        self.output_path=None
-        self.password=None
-        self.jap=False
-        self.covered=False
+        # self.compress_file = None
+        # self.output_file = None
+        # self.output_path = None
+        # self.password = None
+        # self.jap = False
+        # self.covered = False
 
-    def set_compress_file(self, compress_file):
-        self.compress_file=compress_file
-        return self
-    
-    def set_output_file(self, output_file):
-        self.output_file=output_file
-        return self
-    
-    def set_output_path(self, output_path):
-        self.output_path=output_path
-        return self
-
-    def set_password(self, password):
-        self.password=password
-        return self
-    
-    def set_jap(self, jap:bool):
-        self.jap=jap
-        return self
-    
-    def set_covered(self, covered:bool):
-        self.covered=covered
-        return self
-
-    def unzip(self):
-        if not self.compress_file:
+    def unzip(self, compress_file: str, output_path: str, password: str = '', output_file: str = None,
+              jap: bool = False,
+              covered: bool = False):
+        if not compress_file:
             raise UnzipError('压缩文件未设置')
-        if not self.output_path:
+        if not output_path:
             raise UnzipError('输出路径未设置')
         # x 解压  -p 使用密码 -y 重复文件不询问直接覆盖 -o 输出路径 -mcp 编码代码
-        cmd = [self.location_path, 'x', '-p{}'.format(self.password), '-y', self.compress_file]
-        if self.output_file:  # 解压压缩包内的指定文件
-            cmd.append(self.output_file)
-            parent = self.output_file.split("\\")[0]
-            if os.path.join(self.output_path, parent) == self.compress_file:
+        cmd = [self.location_path, 'x', '-p{}'.format(password), '-y', compress_file]
+        if output_file:  # 解压压缩包内的指定文件
+            cmd.append(output_file)
+            parent = output_file.split("\\")[0]
+            if os.path.join(output_path, parent) == compress_file:
                 parent += "(1)"
-                self.output_path = os.path.join(self.output_path, parent)
-        if self.jap:
+                output_path = os.path.join(output_path, parent)
+        if jap:
             # 使用SHIFT_JIS编码解压
             cmd.append('-mcp=932')
-        if self.covered:
+        if covered:
             cmd.append('-t#')
-        cmd.append('-o{}'.format(self.output_path))
+        cmd.append('-o{}'.format(output_path))
 
         print(cmd)
         result = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
@@ -74,18 +52,18 @@ class SevenZDriver:
             msg = out.decode('gbk')
         return result.returncode, msg
 
-    def get_namelist(self):
-        if not self.compress_file:
-            raise UnzipError('压缩文件未设置')
+    def get_namelist(self, compress_file: str, password: str = '', jap: bool = False, covered: bool = False):
+        # if not compress_file:
+        #     raise UnzipError('压缩文件未设置')
         pattern = r'^20\d{2}-[01]\d-[0-3]\d [0-2]\d:[0-6]\d:[0-6]\d \.\S{4}.{28}(.+?)[\r\n]'
 
         namelist = []
-        cmd = [self.location_path, 'l', self.compress_file, '-p{}'.format(self.password)]
+        cmd = [self.location_path, 'l', compress_file, '-p{}'.format(password)]
 
-        if self.jap:
+        if jap:
             # 使用SHIFT_JIS编码解压
             cmd.append('-mcp=932')
-        if self.covered:
+        if covered:
             cmd.append('-t#')
             pattern = r'^ {20}.\S{4}.{28}(.+?)[\r\n]'
             print(cmd)
@@ -99,7 +77,7 @@ class SevenZDriver:
                 match = re.search(pattern, line)
                 if match:
                     file = match.group(1)
-                    if not self.jap and file_ops.encode_detect(file):
+                    if not jap and file_ops.encode_detect(file):
                         raise JapDecodeError(f'文件名乱码:{file}')
                     if file not in namelist:
                         file = re.sub(r'[〜？！_ ′]', "?", file)

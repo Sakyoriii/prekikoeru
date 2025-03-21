@@ -195,12 +195,12 @@ def init_ui():
     window.geometry('1280x648')
     console = Console(window)
     console.pack(fill=tk.BOTH, expand=True)
-    global output
-    output = task_runner.conf.output_path
+    # global output
+    # output = task_runner.conf.output_path
     pk_logger.gui = console
     global UI
     UI = console
     task_runner.progress_ui = console
-    task_runner.unzipper.progress_ui = console
+    # task_runner.unzipper.progress_ui = console
     windnd.hook_dropfiles(window, func=on_drop)
     window.mainloop()

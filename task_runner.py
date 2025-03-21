@@ -8,23 +8,24 @@ import password
 import dlrenamer.ez_client
 import file_ops
 import filter
-import pk_logger
+
 
 from file_ops import mk_if_not_exit, logger
 
 from timeline import Timeline, Archive, Record, extend
-from unzipper import Unzipper
 
-logger = pk_logger.Pk_logger('task_runner', 'log.txt').add_log_handler().get_logger()
-conf = config.Config()
-passwords = password.read_password()
-unzipper = Unzipper(logger, None)
-filter = filter.Filter(conf.filter_kw, conf.filter_dir, logger)
+
+logger = None
+conf = None
+passwords = None
+unzipper = None
+filter = None
 renamer = dlrenamer.ez_client.ez_client()
 progress_ui = "not initialized"
 already_add = []
 timelines = []
 done = []
+
 
 
 def Log_AOP(func):
@@ -276,7 +277,7 @@ def rename(timeline: Timeline):
     return new_path
 
 
-def create_timeline(files, in_progress, progres_ui=progress_ui):
+def create_timeline(files, in_progress):
     if in_progress == 0:
         for file in files:
             zip_list = []
