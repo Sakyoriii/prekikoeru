@@ -61,17 +61,16 @@ path:
 logical_deletion: true
 # 解压后是否自动删除
 del_after_unzip: false
-# 合并分卷后自动删除分卷
-#del_after_merged: true
-# 合并的分卷解压后自动删除（废弃）
-#del_after_merged_and_unzip: true
-# 解压套娃压缩后自动删除,建议开启，关闭影响文件去套娃功能（废弃）
+# 解压套娃压缩后自动删除,建议开启，关闭影响文件去套娃功能
 del_after_reunzip: true
 # 自动跳到下一步   exp：主要分三步, 解压(解压-去除冗余文件夹-寻找压缩包-解压......loop) -> 插入RJ到文件夹名 -> 过滤 -> 根据RJ重命名
 auto_next: true
 # 多线程解压(改成多进程了) 请根自己机器配置设置，参考：13600KF + Samsung 980 推荐设置 = 6
 max_thread: 6
-
+#  多进程的判断因素，可理解为压缩包内的平均文件大小超过这个参数才会启用多进程解压。单位MB
+thread_threshold_mb: 25.6
+#  多进程的判断因素，当压缩率小于这个参数时才会启用多进程解压，值为百分比。但当压缩包内但文件大小超过200MB仍会强制使用多进程
+thread_compression_ratio: 50
 # 解压后过滤不需要的文件或文件夹，使用正则
 filter:
   # 是否过滤文件夹
