@@ -33,6 +33,8 @@ class ConfigFile(object):
         'filte_dir': True,
         'auto_next': False,
         'max_thread': 2,
+        'thread_threshold_mb': 25.6,
+        'thread_compression_ratio': 50,
         'filter': {
             'keyword': [".*SE.*WAV"]
         },

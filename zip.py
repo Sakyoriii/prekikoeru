@@ -1,7 +1,7 @@
 import pk_logger
 from timeline import Archive
 
-logger = pk_logger.Pk_logger('unzip_logger', 'log.txt').add_log_handler().get_logger()
+# logger = pk_logger.Pk_logger('unzip_logger', 'log.txt').add_log_handler().get_logger()
 
 
 class Zip(Archive):
@@ -11,11 +11,13 @@ class Zip(Archive):
                  volumes: list = None):
         super(Zip, self).__init__(file)
         self.pw_list = []
+        self.compression_ratio_info = {}
         self.del_after_unzip = del_after_unzip
         self.jap = jap
         self.covered = covered
         self.set_password(password_list)
         self.volumes = volumes
+
 
     def set_password(self, password_list):
         self.pw_list = password_list

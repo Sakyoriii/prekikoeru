@@ -8,12 +8,7 @@ import file_ops
 class SevenZDriver:
     def __init__(self, location_path=r'C:\Program Files\7-Zip\7z.exe'):
         self.location_path = location_path
-        # self.compress_file = None
-        # self.output_file = None
-        # self.output_path = None
-        # self.password = None
-        # self.jap = False
-        # self.covered = False
+
 
     def unzip(self, compress_file: str, output_path: str, password: str = '', output_file: str = None,
               jap: bool = False,
@@ -47,17 +42,21 @@ class SevenZDriver:
                 if "No files to process" in msg:
                     raise NoFile2ProcessError(msg)
                 raise UnzipError(msg)
+            elif "Cannot delete output file" in msg:
+                raise CannotDeleteOutputFile(msg)
         else:
             # print(out.decode('gbk'))
-            msg = out.decode('gbk')
+            # msg = out.decode('gbk')
+            msg = password
         return result.returncode, msg
 
     def get_namelist(self, compress_file: str, password: str = '', jap: bool = False, covered: bool = False):
         # if not compress_file:
         #     raise UnzipError('压缩文件未设置')
         pattern = r'^20\d{2}-[01]\d-[0-3]\d [0-2]\d:[0-6]\d:[0-6]\d \.\S{4}.{28}(.+?)[\r\n]'
-
+        ratio_pattern = r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+(\d+)\s+(\d+)\s+\d+\s+files,\s+\d+\s+folders\s*$'
         namelist = []
+        compression_ratio_info = {}
         cmd = [self.location_path, 'l', compress_file, '-p{}'.format(password)]
 
         if jap:
@@ -83,11 +82,19 @@ class SevenZDriver:
                         file = re.sub(r'[〜？！_ ′]', "?", file)
                         file = file.replace(u'\u3000', "?").replace(u'\xa0', "?")
                         namelist.append(file)
-                elif 'Type = 7z' in line:
-                    # 7z自带多核优化，无需namelist直接全部解压效率最高
-                    namelist = ['*']
-                    break
-        return namelist
+                else:
+                    match = re.match(ratio_pattern, line)
+                    if match:
+                        size = int(match.group(1))  # 解压后大小
+                        compressed = int(match.group(2))  # 压缩后大小
+                        # 计算压缩率
+                        compression_ratio = (compressed / size * 100) if size > 0 else 0
+                        compression_ratio_info = {
+                            "size": size,
+                            "compressed": compressed,
+                            "compression_ratio": round(compression_ratio, 2)
+                        }
+        return namelist, compression_ratio_info
 
 
 class JapDecodeError(Exception):
@@ -120,6 +127,15 @@ class UnzipError(Exception):
 class NoFile2ProcessError(EOFError):
     def __init__(self, error_info):
         super(NoFile2ProcessError, self).__init__(error_info)
+        self.error_info = error_info
+
+    def __str__(self):
+        return self.error_info
+
+
+class CannotDeleteOutputFile(EOFError):
+    def __init__(self, error_info):
+        super(CannotDeleteOutputFile, self).__init__(error_info)
         self.error_info = error_info
 
     def __str__(self):

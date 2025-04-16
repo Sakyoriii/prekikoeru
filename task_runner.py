@@ -9,11 +9,9 @@ import dlrenamer.ez_client
 import file_ops
 import filter
 
-
 from file_ops import mk_if_not_exit, logger
 
 from timeline import Timeline, Archive, Record, extend
-
 
 logger = None
 conf = None
@@ -25,7 +23,6 @@ progress_ui = "not initialized"
 already_add = []
 timelines = []
 done = []
-
 
 
 def Log_AOP(func):
@@ -140,7 +137,8 @@ def unzip(timeline: Timeline):
             # 文件路径
     if zip.RJ_code and zip.RJ_code not in zip.path:
         output_path += zip.RJ_code
-    if not unzipper.unzip(zip, output_path, conf.max_thread):
+
+    if not unzipper.unzip(zip, output_path,conf.thread_threshold_mb,conf.thread_compression_ratio):
         return
     password.hit_password(passwords, zip.pw_list[0])
     # delete_after_unzip or delete_after_reunzip
@@ -203,7 +201,7 @@ def unnest(timeline: Timeline):
         except Exception as ex:
             logger.error(str(ex))
         return first
-            # basename = last.split('\\')[-1]
+        # basename = last.split('\\')[-1]
         # new_path = os.path.join(conf.output_path, basename)
         # timeline.add_record(timeline.get_current_record().output_file, conf.already_add, 1)
         # new_archive = Archive(new_path)

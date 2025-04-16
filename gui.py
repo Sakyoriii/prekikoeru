@@ -1,5 +1,6 @@
 import os
 import queue
+import re
 
 import tkinter as tk
 from tkinter import ttk, simpledialog
@@ -11,6 +12,7 @@ import pk_logger
 import task_runner
 
 UI = None
+Window = None
 output = ''
 
 
@@ -45,7 +47,7 @@ class Console(tk.Frame):
                                      command=lambda: self.clear())
 
         self.btn1 = tk.Button(self, text='清空', command=lambda: self.clear())
-        self.btn2 = tk.Button(self, text='开冲', command=lambda: self.dash())
+        self.btn2 = tk.Button(self, text='开冲', command=lambda: self.after(500, self.dash()))
         self.btn3 = tk.Button(self, text='设置', command=lambda: os.system('start ' + 'config.yaml'))
 
         self.btn4 = tk.Button(self, text='输出', command=lambda: os.system('start ' + output))
@@ -135,27 +137,6 @@ class Console(tk.Frame):
         index = static_task_list.index(process)
         exec(f'task_runner.{process}_loop()')
 
-        # if process == 'unzip':
-        #     task_runner.unzip_loop(self)
-        #     self.val.set('insert_rj')
-        # elif process == 'insert_rj':
-        #     # for timeline in task_list:
-        #     task_runner.insert_rj_loop(self)
-        #     # self.add2lisbox(main.task_queue)
-        #     self.val.set('filter')
-        # elif process == 'filter':
-        #     # for timeline in task_list:
-        #     #     task_runner.filter_main(timeline)
-        #     # main.next_queue.put(timeline)
-        #     # self.add2lisbox(main.next_queue)
-        #     task_runner.filter_loop(self)
-        #     self.val.set('rename')
-        # elif process == 'rename':
-        #     # task_runner.rename_main()
-        #     task_runner.remame_loop(self)
-        #     self.btn2.configure(stat=tk.NORMAL)
-        #     return
-
         self.btn2.configure(stat=tk.NORMAL)
         if index < len(static_task_list) - 1:
             self.val.set(static_task_list[index + 1])
@@ -163,16 +144,32 @@ class Console(tk.Frame):
             if task_runner.conf.auto_next:
                 self.dash()
 
-        # 当前队列完成，把下一个队列的任务加入到任务队列后清空任务队列
-        # if not main.next_queue.empty():
-        #     main.task_queue = main.next_queue
-        #     main.next_queue = queue.Queue()
 
-        # self.add2lisbox(main.task_queue)
-        # if True and not process == 'rename':
-        #     task_runner.remame_loop(self)
-        #     self.clear()
-        # self.btn2.configure(stat=tk.NORMAL)
+    def flush_progress(self, log_queue):
+        while not log_queue.empty():
+            item = log_queue.get(block=False)
+            if item is None:
+                return
+            list_id, msg = item
+            value, maximum = extract_fraction(msg)
+            if value:
+                self.update_progress(value, maximum, msg)
+            else:
+                self.val3.set('')
+                self.val2.set(msg)
+
+        self.after(100, self.flush_progress, log_queue)
+
+
+def extract_fraction(fraction_string):
+    # 使用正则表达式匹配分数
+    match = re.search(r'(\d+)/(\d+)', fraction_string)
+    if match:
+        numerator = int(match.group(1))  # 提取分子
+        denominator = int(match.group(2))  # 提取分母
+        return numerator, denominator
+    else:
+        return None, None
 
 
 def on_drop(files):
@@ -189,7 +186,7 @@ def on_drop(files):
         task_runner.create_timeline(files, i)
 
 
-def init_ui():
+def init_ui(log_queue):
     window = tk.Tk()
     window.title("prekikoeru_v0.1")
     window.geometry('1280x648')
@@ -200,7 +197,15 @@ def init_ui():
     pk_logger.gui = console
     global UI
     UI = console
+    global Window
+    Window = window
     task_runner.progress_ui = console
     # task_runner.unzipper.progress_ui = console
     windnd.hook_dropfiles(window, func=on_drop)
-    window.mainloop()
+
+    console.after(1000, console.flush_progress, log_queue)
+
+
+def mainloop_ui():
+    global Window
+    Window.mainloop()
