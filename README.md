@@ -18,6 +18,11 @@
 
 
 
+
+
+
+
+
 13G资源解压用时约 60*5/20=15s ，cpu和磁盘都吃满了，写入峰值约1.7GB/S，均值约 13/15=0.866666666667GB/S
 
 ![image-20250322043659640](https://cdn.jsdelivr.net/gh/Sakyoriii/PicGonCDN//img/202503220437727.png)
