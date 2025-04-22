@@ -9,7 +9,6 @@ class SevenZDriver:
     def __init__(self, location_path=r'C:\Program Files\7-Zip\7z.exe'):
         self.location_path = location_path
 
-
     def unzip(self, compress_file: str, output_path: str, password: str = '', output_file: str = None,
               jap: bool = False,
               covered: bool = False):
@@ -72,6 +71,7 @@ class SevenZDriver:
             msg = err.decode('gbk')
             raise GetNamelistError(f'获取文件list错误:{msg}')
         if out:
+            compression_ratio_info = {"encrypted": False}
             for line in out.strip().decode('gbk').split('\n'):
                 match = re.search(pattern, line)
                 if match:
@@ -89,11 +89,14 @@ class SevenZDriver:
                         compressed = int(match.group(2))  # 压缩后大小
                         # 计算压缩率
                         compression_ratio = (compressed / size * 100) if size > 0 else 0
-                        compression_ratio_info = {
+                        compression_ratio_info.update({
                             "size": size,
                             "compressed": compressed,
                             "compression_ratio": round(compression_ratio, 2)
-                        }
+                        })
+                    elif '7zAES' in line:
+                        compression_ratio_info["encrypted"] = True
+
         return namelist, compression_ratio_info
 
 

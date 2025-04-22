@@ -108,15 +108,19 @@ class Unzipper():
                 return None
             elif len(zip.file_list) == 1 or zip.covered:
                 self.logger.info(f" 文件[' {zip.path} ']解压完成")
-            elif size / len(zip.file_list) > 200 or (
-                    size / len(zip.file_list) > thread_threshold_mb and zip.compression_ratio_info[
-                'compression_ratio'] > thread_compression_ratio):  # 由于前置过滤的存在，计算并不完全准确
+            elif not zip.compression_ratio_info["encrypted"] and \
+                    (size / len(zip.file_list) > 200 or (size / len(zip.file_list) > thread_threshold_mb and zip.compression_ratio_info[
+                         "compression_ratio"] > thread_compression_ratio)):  # 判断压缩文件加密、平均文件size、文件压缩率
+                # 由于前置过滤的存在，计算并不完全准确
                 self.logger.info(f" 使用多线程解压 [' {zip.path} ']")
                 if not self.multi_threaded_unzip(zip, output_path):
                     return None
                 self.logger.info(f" 文件[' {zip.path} ']解压完成")
             else:
-                self.logger.info(f" 小文件较多（{size}MB/{len(zip.file_list)}Files），使用单线程解压 [' {zip.path} ']")
+                self.logger.info(f"{size}MB/{len(zip.file_list)} Files "
+                                 f"压缩率： {zip.compression_ratio_info.get('compression_ratio')} "
+                                 f"加密： {zip.compression_ratio_info.get('encrypted')} ,"
+                                 f"使用单线程解压 [' {zip.path} ']")
                 if not self.single_threaded_unzip(zip, output_path):
                     return None
         return output_path
