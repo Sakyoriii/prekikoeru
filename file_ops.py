@@ -83,7 +83,7 @@ def encode_detect(str_name):
     # 检测可能的正确编码
     result = chardet.detect(encode_name)
     if not result['encoding']:
-        return True
+        return False
     return result['encoding'] == 'SHIFT_JIS'
 
 
