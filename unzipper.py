@@ -51,11 +51,11 @@ class Unzipper():
                                                                                            jap=zip.jap,
                                                                                            covered=zip.covered)
                     except GetNamelistError as err:
-                        if zip.extension in ['.mp4', '.mkv']:
-                            zip.covered = True
-                        elif 'Wrong password' in err.error_info:
+                        if 'Wrong password' in err.error_info:
                             wrong_password = True
                             break
+                        elif zip.extension in ['.mp4', '.mkv'] and not zip.covered:
+                            zip.covered = True
                         else:
                             self.logger.error(err.error_info)
                             retry = False
