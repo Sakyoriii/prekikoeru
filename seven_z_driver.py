@@ -53,7 +53,7 @@ class SevenZDriver:
         # if not compress_file:
         #     raise UnzipError('压缩文件未设置')
         pattern = r'^20\d{2}-[01]\d-[0-3]\d [0-2]\d:[0-6]\d:[0-6]\d \.\S{4}.{28}(.+?)[\r\n]'
-        ratio_pattern = r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+(\d+)\s+(\d+)\s+\d+\s+files,\s+\d+\s+folders\s*$'
+        ratio_pattern = r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+(\d+)\s+(\d+)\s+\d+\s+files(?:,\s+\d+\s+folders)?\s*$'
         namelist = []
         compression_ratio_info = {}
         cmd = [self.location_path, 'l', compress_file, '-p{}'.format(password)]
